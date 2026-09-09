@@ -95,7 +95,7 @@ if (isInAppBrowser(ua)) {
 
   document.getElementById("copyLinkBtn").addEventListener("click", function () {
     var tempInput = document.createElement("input");
-    tempInput.value = DEST_URL;
+    tempInput.value = window.location.href; // คัดลอกลิงก์หน้านี้เอง (ไม่ใช่ลิงก์ปลายทาง) กันคนงงว่าทำไมได้ลิงก์แปลกๆ
     document.body.appendChild(tempInput);
     tempInput.select();
     tempInput.setSelectionRange(0, 99999);
