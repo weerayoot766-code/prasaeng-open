@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ขายบ้านและที่ดิน - พระแสงเดลิเวอรี่</title>
+
+<style>
+body{ font-family:Arial;font-size:20px; background:#fff8f0; padding:20px; }
+.card{ background:#fff; border-radius:20px; padding:20px; margin-bottom:16px; box-shadow:0 3px 10px rgba(0,0,0,.08); }
+h1,h2{ color:#c2410c; }
+button{ width:100%; background:#c2410c; color:white; border:none; border-radius:10px; padding:12px; font-size:16px; cursor:pointer; margin-top:8px; }
+input,select,textarea{ width:100%; padding:12px; border-radius:10px; border:1px solid #ccc; font-size:16px; box-sizing:border-box; margin-top:8px; font-family:Arial; }
+.back-btn{ background:#555; }
+.type-tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.type-tab{ width:auto; padding:8px 14px; border-radius:20px; background:#f0f0f0; color:#666; font-size:13px; margin:0; }
+.type-tab.active{ background:#c2410c; color:#fff; }
+
+.sale-grid{ display:flex; flex-direction:column; gap:14px; }
+.sale-card{ background:#fffaf5; border-radius:16px; overflow:hidden; cursor:pointer; box-shadow:0 3px 8px rgba(0,0,0,.06); display:flex; flex-direction:row; align-items:stretch; }
+.sale-card img{ width:140px; min-width:140px; height:auto; object-fit:contain; background:#fff1e6; padding:6px; box-sizing:border-box; }
+.sale-card-body{ padding:12px; flex:1; display:flex; flex-direction:column; justify-content:center; }
+.sale-card b{ display:block; font-size:15px; margin-bottom:6px; }
+
+.sale-price{ color:#c2410c; font-weight:bold; font-size:15px; }
+
+.type-badge{ display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; margin-top:4px; background:#ffe8d6; color:#c2410c; }
+.sold-badge{ background:#fdeaea; color:#d63333; }
+.available-badge{ background:#e6f9ee; color:#1a9c52; }
+.detail-gallery{ display:flex; gap:8px; overflow-x:auto; margin-bottom:12px; }
+.detail-gallery img{ width:140px; height:100px; object-fit:cover; border-radius:12px; flex:0 0 auto; }
+.checkbox-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+.checkbox-item{ display:flex; align-items:center; gap:6px; background:#fffaf5; padding:8px; border-radius:8px; font-size:14px; }
+.checkbox-item input{ width:auto; margin:0; }
+.type-extra{ display:none; }
+</style>
+</head>
+<body>
+
+<button class="back-btn" onclick="goHome()">← กลับหน้าแรก</button>
+
+<div id="app"></div>
+
+<script src="api.js"></script>
+<script>
+
+function escapeHtml(text){
+  return String(text || "")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+function goHome(){
+  window.location.href = "index.html";
+}
+
+let allSales = [];
+let selectedType = "ทั้งหมด";
+let regLat = "";
+let regLng = "";
+
+async function loadHome(){
+  document.getElementById("app").innerHTML = "กำลังโหลด...";
+  try {
+    const sales = await apiGet('getApprovedSales');
+    allSales = sales || [];
+    renderHome();
+  } catch(error){
+    document.getElementById("app").innerHTML = "โหลดข้อมูลไม่สำเร็จ: " + error.message;
+  }
+}
+
+function renderHome(){
+  let html = '<h1>🏡 ประกาศขายบ้านและที่ดิน</h1>';
+
+  html += '<div class="card">';
+  html += '<div class="type-tabs">';
+  ["ทั้งหมด","บ้าน","ที่ดิน","บ้านพร้อมที่ดิน"].forEach(function(t){
+    html += '<button class="type-tab ' + (t === selectedType ? "active" : "") + '" onclick="filterType(\'' + t + '\')">' + t + '</button>';
+  });
+  html += '</div>';
+
+  const filtered = selectedType === "ทั้งหมด" ? allSales : allSales.filter(function(s){ return s.propertyType === selectedType; });
+
+  html += '<div class="sale-grid">';
+  if(filtered.length === 0){ html += '<p>ยังไม่มีประกาศในหมวดนี้</p>'; }
+
+  filtered.forEach(function(s){
+    const isAvailable = s.availability !== "sold";
+    html += '<div class="sale-card" onclick="openDetail(\'' + escapeHtml(s.saleId) + '\')">';
+    html += '<img src="' + escapeHtml(s.image1 || "") + '">';
+    html += '<div class="sale-card-body">';
+    html += '<div style="margin-bottom:6px;"><span class="type-badge">' + escapeHtml(s.propertyType) + '</span> ';
+    html += '<span class="type-badge ' + (isAvailable ? "available-badge" : "sold-badge") + '">' + (isAvailable ? "ยังไม่ขาย" : "ขายแล้ว") + '</span></div>';
+    html += '<b>' + escapeHtml(s.title) + '</b>';
+    html += '<span class="sale-price">' + Number(s.price).toLocaleString() + ' บาท</span>';
+    html += '</div></div>';
+  });
+
+  html += '</div></div>';
+  html += '<div class="card"><h2>🔑 สำหรับเจ้าของทรัพย์สิน</h2>';
+  html += '<button onclick="showOwnerSection()">ลงประกาศ / จัดการประกาศของฉัน</button></div>';
+
+  document.getElementById("app").innerHTML = html;
+}
+
+function filterType(t){
+  selectedType = t;
+  renderHome();
+}
+
+async function openDetail(saleId){
+  document.getElementById("app").innerHTML = "กำลังโหลด...";
+  try {
+    const s = await apiGet('getSaleDetail', { saleId: saleId });
+    if(!s){ alert("ไม่พบประกาศนี้"); renderHome(); return; }
+    renderDetail(s);
+  } catch(error){
+    alert("โหลดไม่สำเร็จ: " + error.message);
+  }
+}
+
+function renderDetail(s){
+  const isAvailable = s.availability !== "sold";
+  let html = '<button onclick="renderHome()" style="background:#555;">← กลับรายการประกาศ</button>';
+  html += '<div class="card">';
+
+  html += '<div class="detail-gallery">';
+  [s.image1, s.image2, s.image3].forEach(function(img){
+    if(img){ html += '<img src="' + escapeHtml(img) + '">'; }
+  });
+  html += '</div>';
+
+  html += '<h2>' + escapeHtml(s.title) + '</h2>';
+  html += '<p class="sale-price" style="font-size:20px;">' + Number(s.price).toLocaleString() + ' บาท</p>';
+  html += '<span class="type-badge">' + escapeHtml(s.propertyType) + '</span> ';
+  html += '<span class="type-badge ' + (isAvailable ? "available-badge" : "sold-badge") + '">' + (isAvailable ? "ยังไม่ขาย" : "ขายแล้ว") + '</span>';
+
+  if(s.landSize){ html += '<p style="margin-top:14px;">📐 ขนาดที่ดิน: ' + escapeHtml(s.landSize) + '</p>'; }
+  if(s.deedType){ html += '<p>📄 ประเภทโฉนด: ' + escapeHtml(s.deedType) + '</p>'; }
+  if(s.houseDetails){ html += '<p>🏠 รายละเอียดบ้าน: ' + escapeHtml(s.houseDetails) + '</p>'; }
+
+  html += '<p>📍 ที่อยู่: ' + escapeHtml(s.address || "-") + '</p>';
+
+  if(s.lat && s.lng){
+    html += '<p><a href="https://maps.google.com/?q=' + s.lat + ',' + s.lng + '" target="_blank">🗺️ เปิดแผนที่</a></p>';
+  }
+
+  if(s.facilities){
+    html += '<div class="checkbox-grid" style="display:flex;flex-wrap:wrap;gap:6px;">';
+    s.facilities.split(",").forEach(function(f){
+      const t = f.trim();
+      if(t){ html += '<span class="type-badge">' + escapeHtml(t) + '</span>'; }
+    });
+    html += '</div>';
+  }
+
+  html += '<a href="tel:' + escapeHtml(String(s.ownerPhone).replace(/-/g,"")) + '">';
+  html += '<button style="margin-top:16px;background:#25d366;">📞 โทรติดต่อเจ้าของ (' + escapeHtml(s.ownerPhone) + ')</button>';
+  html += '</a>';
+
+  html += '</div>';
+  document.getElementById("app").innerHTML = html;
+}
+
+function showOwnerSection(){
+  let html = '<button onclick="renderHome()" style="background:#555;">← กลับหน้าแรก</button>';
+
+  html += '<div class="card"><h2>📝 ลงประกาศขายใหม่</h2>';
+  html += '<input id="regOwnerName" placeholder="ชื่อเจ้าของทรัพย์สิน">';
+  html += '<input id="regOwnerPhone" placeholder="เบอร์โทรติดต่อ">';
+
+  html += '<label style="display:block;margin-top:10px;font-weight:bold;">ประเภททรัพย์สิน</label>';
+  html += '<select id="regPropertyType" onchange="onTypeChange()">';
+  html += '<option value="บ้าน">บ้าน</option>';
+  html += '<option value="ที่ดิน">ที่ดิน</option>';
+  html += '<option value="บ้านพร้อมที่ดิน">บ้านพร้อมที่ดิน</option>';
+  html += '</select>';
+
+  html += '<input id="regTitle" placeholder="ชื่อประกาศ เช่น บ้านเดี่ยว 2 ชั้น ใกล้ตลาด">';
+  html += '<input id="regPrice" type="number" placeholder="ราคา (บาท)">';
+
+  html += '<div id="houseExtra" class="type-extra">';
+  html += '<input id="regHouseDetails" placeholder="รายละเอียดบ้าน เช่น 3 นอน 2 น้ำ 2 ชั้น">';
+  html += '</div>';
+
+  html += '<div id="landExtra" class="type-extra">';
+  html += '<input id="regLandSize" placeholder="ขนาดที่ดิน เช่น 2 ไร่ 1 งาน 50 ตารางวา">';
+  html += '<select id="regDeedType">';
+  html += '<option value="">-- เลือกประเภทโฉนด --</option>';
+  html += '<option value="โฉนดที่ดิน (นส.4)">โฉนดที่ดิน (นส.4)</option>';
+  html += '<option value="นส.3ก">นส.3ก</option>';
+  html += '<option value="นส.3">นส.3</option>';
+  html += '<option value="ส.ป.ก.">ส.ป.ก.</option>';
+  html += '<option value="อื่นๆ">อื่นๆ</option>';
+  html += '</select>';
+  html += '</div>';
+
+  html += '<textarea id="regAddress" rows="2" placeholder="ที่อยู่"></textarea>';
+
+  html += '<label style="display:block;margin-top:10px;font-weight:bold;">สิ่งอำนวยความสะดวก/จุดเด่น</label>';
+  html += '<div class="checkbox-grid">';
+  ["ใกล้ถนนใหญ่","ไฟฟ้าเข้าถึง","น้ำประปาเข้าถึง","ถมดินแล้ว","มีรั้วรอบ","ใกล้ตลาด/ชุมชน","วิวดี","จอดรถได้หลายคัน"].forEach(function(f){
+    html += '<label class="checkbox-item"><input type="checkbox" class="facility-checkbox" value="' + f + '"> ' + f + '</label>';
+  });
+  html += '</div>';
+
+  html += '<button onclick="getRegLocation()" style="margin-top:14px;">📍 ปักหมุดที่ตั้ง</button>';
+  html += '<p id="regLocationText">ยังไม่ได้ปักหมุด</p>';
+
+  html += '<label style="display:block;margin-top:10px;">รูปภาพ (อย่างน้อย 1 รูป)</label>';
+  html += '<input type="file" id="regImage1" accept="image/*">';
+  html += '<input type="file" id="regImage2" accept="image/*">';
+  html += '<input type="file" id="regImage3" accept="image/*">';
+
+  html += '<button onclick="submitSale()" style="background:#2ecc71;margin-top:14px;">ส่งประกาศให้แอดมินตรวจ</button>';
+  html += '</div>';
+
+  html += '<div class="card"><h2>⚙️ จัดการประกาศของฉัน</h2>';
+  html += '<input id="mgSaleId" placeholder="รหัสประกาศ">';
+  html += '<input id="mgPin" placeholder="PIN 4 หลัก">';
+  html += '<button onclick="toggleAvailability(\'sold\')" style="background:#e74c3c;">🔴 ทำเครื่องหมายว่าขายแล้ว</button>';
+  html += '<button onclick="toggleAvailability(\'available\')" style="background:#2ecc71;">🟢 ทำเครื่องหมายว่ายังไม่ขาย</button>';
+  html += '</div>';
+
+  document.getElementById("app").innerHTML = html;
+  onTypeChange();
+}
+
+function onTypeChange(){
+  const type = document.getElementById("regPropertyType").value;
+  document.getElementById("houseExtra").style.display = (type === "บ้าน" || type === "บ้านพร้อมที่ดิน") ? "block" : "none";
+  document.getElementById("landExtra").style.display = (type === "ที่ดิน" || type === "บ้านพร้อมที่ดิน") ? "block" : "none";
+}
+
+function getRegLocation(){
+  navigator.geolocation.getCurrentPosition(
+    function(position){
+      regLat = position.coords.latitude;
+      regLng = position.coords.longitude;
+      document.getElementById("regLocationText").innerHTML = "ปักหมุดแล้ว ✅";
+    },
+    function(){ alert("กรุณาเปิด GPS ก่อน"); }
+  );
+}
+
+function resizeImage(file, callback){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const canvas = document.createElement("canvas");
+      const maxWidth = 700;
+      const scale = maxWidth / img.width;
+      canvas.width = maxWidth;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      callback(canvas.toDataURL("image/jpeg", 0.6).split(",")[1]);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function submitSale(){
+  const ownerName = document.getElementById("regOwnerName").value.trim();
+  const ownerPhone = document.getElementById("regOwnerPhone").value.trim();
+  const propertyType = document.getElementById("regPropertyType").value;
+  const title = document.getElementById("regTitle").value.trim();
+  const price = document.getElementById("regPrice").value;
+  const address = document.getElementById("regAddress").value.trim();
+
+  const houseDetails = document.getElementById("regHouseDetails") ? document.getElementById("regHouseDetails").value.trim() : "";
+  const landSize = document.getElementById("regLandSize") ? document.getElementById("regLandSize").value.trim() : "";
+  const deedType = document.getElementById("regDeedType") ? document.getElementById("regDeedType").value : "";
+
+  const facilities = Array.from(document.querySelectorAll(".facility-checkbox:checked")).map(function(c){ return c.value; });
+
+  const file1 = document.getElementById("regImage1").files[0];
+  const file2 = document.getElementById("regImage2").files[0];
+  const file3 = document.getElementById("regImage3").files[0];
+
+  if(!ownerName || !ownerPhone || !title || !price || !address){ alert("กรุณากรอกข้อมูลให้ครบ"); return; }
+  if(regLat === "" || regLng === ""){ alert("กรุณาปักหมุดที่ตั้งก่อน"); return; }
+  if(!file1){ alert("กรุณาแนบรูปอย่างน้อย 1 รูป"); return; }
+
+  resizeImage(file1, function(img1){
+    const send = async function(img2, img3){
+      try {
+        const result = await apiPost('registerSale', { data: {
+          ownerName: ownerName, ownerPhone: ownerPhone, propertyType: propertyType, title: title, price: price,
+          address: address, lat: regLat, lng: regLng, landSize: landSize, deedType: deedType,
+          houseDetails: houseDetails, facilities: facilities, image1: img1, image2: img2 || "", image3: img3 || ""
+        }});
+        alert(
+          "ส่งประกาศแล้ว ✅\n\n" +
+          "รหัสประกาศ: " + result.saleId + "\n" +
+          "PIN: " + result.pin + "\n\n" +
+          "กรุณาเก็บไว้ใช้จัดการประกาศ\nรอแอดมินอนุมัติก่อนแสดงผลจริง"
+        );
+        renderHome();
+      } catch(error){
+        alert("ส่งประกาศไม่สำเร็จ: " + error.message);
+      }
+    };
+
+    if(file2){
+      resizeImage(file2, function(img2){
+        if(file3){ resizeImage(file3, function(img3){ send(img2, img3); }); }
+        else { send(img2, ""); }
+      });
+    } else {
+      send("", "");
+    }
+  });
+}
+
+async function toggleAvailability(status){
+  const saleId = document.getElementById("mgSaleId").value.trim();
+  const pin = document.getElementById("mgPin").value.trim();
+
+  if(saleId === "" || pin === ""){ alert("กรุณากรอกรหัสประกาศและ PIN"); return; }
+
+  try {
+    const result = await apiPost('setSaleAvailability', { saleId: saleId, pin: pin, availability: status });
+    if(!result.success){ alert("รหัสประกาศหรือ PIN ไม่ถูกต้อง"); return; }
+    alert(status === "sold" ? "ปรับเป็นขายแล้ว ✅" : "ปรับเป็นยังไม่ขาย ✅");
+  } catch(error){
+    alert("อัปเดตไม่สำเร็จ: " + error.message);
+  }
+}
+
+window.addEventListener("load", loadHome);
+
+</script>
+</body>
+</html>

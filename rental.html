@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>หาบ้านเช่า - พระแสงเดลิเวอรี่</title>
+
+<style>
+body{ font-family:Arial;font-size:20px; background:#f0fbf7; padding:20px; }
+.card{ background:#fff; border-radius:20px; padding:20px; margin-bottom:16px; box-shadow:0 3px 10px rgba(0,0,0,.08); }
+h1,h2{ color:#0d9488; }
+button{ width:100%; background:#0d9488; color:white; border:none; border-radius:10px; padding:12px; font-size:16px; cursor:pointer; margin-top:8px; }
+input,select,textarea{ width:100%; padding:12px; border-radius:10px; border:1px solid #ccc; font-size:16px; box-sizing:border-box; margin-top:8px; font-family:Arial; }
+.back-btn{ background:#555; }
+
+.rental-grid{ display:flex; flex-direction:column; gap:14px; }
+.rental-card{ background:#f7fdfb; border-radius:16px; overflow:hidden; cursor:pointer; box-shadow:0 3px 8px rgba(0,0,0,.06); display:flex; flex-direction:row; align-items:stretch; }
+.rental-card img{ width:140px; min-width:140px; height:auto; object-fit:contain; background:#eafaf5; padding:6px; box-sizing:border-box; }
+.rental-card-body{ padding:12px; flex:1; display:flex; flex-direction:column; justify-content:center; }
+.rental-card b{ display:block; font-size:15px; margin-bottom:6px; }
+
+.rental-price{ color:#0d9488; font-weight:bold; font-size:15px; }
+.rental-badge{ display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; margin-top:4px; }
+.badge-available{ background:#e6f9ee; color:#1a9c52; }
+.badge-rented{ background:#fdeaea; color:#d63333; }
+.facility-tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.facility-tag{ background:#e6f7f4; color:#0d9488; font-size:12px; padding:4px 10px; border-radius:12px; }
+.detail-gallery{ display:flex; gap:8px; overflow-x:auto; margin-bottom:12px; }
+.detail-gallery img{ width:140px; height:100px; object-fit:cover; border-radius:12px; flex:0 0 auto; }
+.checkbox-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+.checkbox-item{ display:flex; align-items:center; gap:6px; background:#f7fdfb; padding:8px; border-radius:8px; font-size:14px; }
+.checkbox-item input{ width:auto; margin:0; }
+</style>
+</head>
+<body>
+
+<button class="back-btn" onclick="goHome()">← กลับหน้าแรก</button>
+
+<div id="app"></div>
+
+<script src="api.js"></script>
+<script>
+
+function escapeHtml(text){
+  return String(text || "")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+function goHome(){
+  window.location.href = "index.html";
+}
+
+let allRentals = [];
+let regLat = "";
+let regLng = "";
+
+async function loadHome(){
+  document.getElementById("app").innerHTML = "กำลังโหลด...";
+  try {
+    const rentals = await apiGet('getApprovedRentals');
+    allRentals = rentals || [];
+    renderHome();
+  } catch(error){
+    document.getElementById("app").innerHTML = "โหลดข้อมูลไม่สำเร็จ: " + error.message;
+  }
+}
+
+function renderHome(){
+  let html = '<h1>🏠 หาบ้านเช่า</h1>';
+  html += '<div class="card"><div class="rental-grid">';
+
+  if(allRentals.length === 0){ html += '<p>ยังไม่มีประกาศบ้านเช่า</p>'; }
+
+  allRentals.forEach(function(r){
+    const isAvailable = r.availability !== "rented";
+    html += '<div class="rental-card" onclick="openDetail(\'' + escapeHtml(r.rentalId) + '\')">';
+    html += '<img src="' + escapeHtml(r.image1 || "") + '">';
+    html += '<div class="rental-card-body">';
+    html += '<span class="rental-badge ' + (isAvailable ? "badge-available" : "badge-rented") + '" style="align-self:flex-start;margin-bottom:6px;">' + (isAvailable ? "ว่าง" : "ไม่ว่าง") + '</span>';
+    html += '<b>' + escapeHtml(r.title) + '</b>';
+    html += '<span class="rental-price">' + Number(r.price) + ' บาท/เดือน</span>';
+    html += '</div></div>';
+  });
+
+  html += '</div></div>';
+  html += '<div class="card"><h2>🔑 สำหรับเจ้าของบ้าน</h2>';
+  html += '<button onclick="showOwnerSection()">ลงประกาศ / จัดการประกาศของฉัน</button></div>';
+
+  document.getElementById("app").innerHTML = html;
+}
+
+async function openDetail(rentalId){
+  document.getElementById("app").innerHTML = "กำลังโหลด...";
+  try {
+    const r = await apiGet('getRentalDetail', { rentalId: rentalId });
+    if(!r){ alert("ไม่พบประกาศนี้"); renderHome(); return; }
+    renderDetail(r);
+  } catch(error){
+    alert("โหลดไม่สำเร็จ: " + error.message);
+  }
+}
+
+function renderDetail(r){
+  const isAvailable = r.availability !== "rented";
+  let html = '<button onclick="renderHome()" style="background:#555;">← กลับรายการบ้านเช่า</button>';
+  html += '<div class="card">';
+
+  html += '<div class="detail-gallery">';
+  [r.image1, r.image2, r.image3].forEach(function(img){
+    if(img){ html += '<img src="' + escapeHtml(img) + '">'; }
+  });
+  html += '</div>';
+
+  html += '<h2>' + escapeHtml(r.title) + '</h2>';
+  html += '<p class="rental-price" style="font-size:20px;">' + Number(r.price) + ' บาท/เดือน</p>';
+  html += '<span class="rental-badge ' + (isAvailable ? "badge-available" : "badge-rented") + '">' + (isAvailable ? "ว่าง" : "ไม่ว่าง") + '</span>';
+
+  html += '<p style="margin-top:14px;">📐 ขนาดห้อง: ' + escapeHtml(r.roomSize || "-") + '</p>';
+  html += '<p>📍 ที่อยู่: ' + escapeHtml(r.address || "-") + '</p>';
+
+  if(r.lat && r.lng){
+    html += '<p><a href="https://maps.google.com/?q=' + r.lat + ',' + r.lng + '" target="_blank">🗺️ เปิดแผนที่</a></p>';
+  }
+
+  if(r.facilities){
+    html += '<div class="facility-tags">';
+    r.facilities.split(",").forEach(function(f){
+      const t = f.trim();
+      if(t){ html += '<span class="facility-tag">' + escapeHtml(t) + '</span>'; }
+    });
+    html += '</div>';
+  }
+
+  html += '<a href="tel:' + escapeHtml(String(r.ownerPhone).replace(/-/g,"")) + '">';
+  html += '<button style="margin-top:16px;background:#25d366;">📞 โทรติดต่อเจ้าของบ้าน (' + escapeHtml(r.ownerPhone) + ')</button>';
+  html += '</a>';
+
+  html += '</div>';
+  document.getElementById("app").innerHTML = html;
+}
+
+function showOwnerSection(){
+  let html = '<button onclick="renderHome()" style="background:#555;">← กลับหน้าแรก</button>';
+
+  html += '<div class="card"><h2>📝 ลงประกาศบ้านเช่าใหม่</h2>';
+  html += '<input id="regOwnerName" placeholder="ชื่อเจ้าของบ้าน">';
+  html += '<input id="regOwnerPhone" placeholder="เบอร์โทรติดต่อ">';
+  html += '<input id="regTitle" placeholder="ชื่อประกาศ เช่น หอพักใกล้ตลาด ห้องสวย">';
+  html += '<input id="regPrice" type="number" placeholder="ราคา (บาท/เดือน)">';
+  html += '<input id="regRoomSize" placeholder="ขนาดห้อง เช่น 4x6 เมตร">';
+  html += '<textarea id="regAddress" rows="2" placeholder="ที่อยู่"></textarea>';
+
+  html += '<label style="display:block;margin-top:10px;font-weight:bold;">สิ่งอำนวยความสะดวก</label>';
+  html += '<div class="checkbox-grid">';
+  ["แอร์","พัดลม","เตียง","ตู้เย็น","เครื่องซักผ้า","ที่จอดรถ","Wifi","เฟอร์นิเจอร์ครบ","ระเบียง","อนุญาตเลี้ยงสัตว์"].forEach(function(f){
+    html += '<label class="checkbox-item"><input type="checkbox" class="facility-checkbox" value="' + f + '"> ' + f + '</label>';
+  });
+  html += '</div>';
+
+  html += '<button onclick="getRegLocation()" style="margin-top:14px;">📍 ปักหมุดที่ตั้งบ้าน</button>';
+  html += '<p id="regLocationText">ยังไม่ได้ปักหมุด</p>';
+
+  html += '<label style="display:block;margin-top:10px;">รูปบ้าน/ห้อง (อย่างน้อย 1 รูป)</label>';
+  html += '<input type="file" id="regImage1" accept="image/*">';
+  html += '<input type="file" id="regImage2" accept="image/*">';
+  html += '<input type="file" id="regImage3" accept="image/*">';
+
+  html += '<button onclick="submitRental()" style="background:#2ecc71;margin-top:14px;">ส่งประกาศให้แอดมินตรวจ</button>';
+  html += '</div>';
+
+  html += '<div class="card"><h2>⚙️ จัดการประกาศของฉัน</h2>';
+  html += '<input id="mgRentalId" placeholder="รหัสประกาศ">';
+  html += '<input id="mgPin" placeholder="PIN 4 หลัก">';
+  html += '<button onclick="toggleAvailability(\'rented\')" style="background:#e74c3c;">🔴 ทำเครื่องหมายว่าไม่ว่างแล้ว</button>';
+  html += '<button onclick="toggleAvailability(\'available\')" style="background:#2ecc71;">🟢 ทำเครื่องหมายว่าว่างอีกครั้ง</button>';
+  html += '</div>';
+
+  document.getElementById("app").innerHTML = html;
+}
+
+function getRegLocation(){
+  navigator.geolocation.getCurrentPosition(
+    function(position){
+      regLat = position.coords.latitude;
+      regLng = position.coords.longitude;
+      document.getElementById("regLocationText").innerHTML = "ปักหมุดแล้ว ✅";
+    },
+    function(){ alert("กรุณาเปิด GPS ก่อน"); }
+  );
+}
+
+function resizeImage(file, callback){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const canvas = document.createElement("canvas");
+      const maxWidth = 700;
+      const scale = maxWidth / img.width;
+      canvas.width = maxWidth;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      callback(canvas.toDataURL("image/jpeg", 0.6).split(",")[1]);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function submitRental(){
+  const ownerName = document.getElementById("regOwnerName").value.trim();
+  const ownerPhone = document.getElementById("regOwnerPhone").value.trim();
+  const title = document.getElementById("regTitle").value.trim();
+  const price = document.getElementById("regPrice").value;
+  const roomSize = document.getElementById("regRoomSize").value.trim();
+  const address = document.getElementById("regAddress").value.trim();
+
+  const facilities = Array.from(document.querySelectorAll(".facility-checkbox:checked")).map(function(c){ return c.value; });
+
+  const file1 = document.getElementById("regImage1").files[0];
+  const file2 = document.getElementById("regImage2").files[0];
+  const file3 = document.getElementById("regImage3").files[0];
+
+  if(!ownerName || !ownerPhone || !title || !price || !address){ alert("กรุณากรอกข้อมูลให้ครบ"); return; }
+  if(regLat === "" || regLng === ""){ alert("กรุณาปักหมุดที่ตั้งบ้านก่อน"); return; }
+  if(!file1){ alert("กรุณาแนบรูปอย่างน้อย 1 รูป"); return; }
+
+  resizeImage(file1, function(img1){
+    const send = async function(img2, img3){
+      try {
+        const result = await apiPost('registerRental', { data: {
+          ownerName: ownerName, ownerPhone: ownerPhone, title: title, price: price,
+          roomSize: roomSize, address: address, lat: regLat, lng: regLng, facilities: facilities,
+          image1: img1, image2: img2 || "", image3: img3 || ""
+        }});
+        alert(
+          "ส่งประกาศแล้ว ✅\n\n" +
+          "รหัสประกาศ: " + result.rentalId + "\n" +
+          "PIN: " + result.pin + "\n\n" +
+          "กรุณาเก็บไว้ใช้จัดการประกาศ\nรอแอดมินอนุมัติก่อนแสดงผลจริง"
+        );
+        renderHome();
+      } catch(error){
+        alert("ส่งประกาศไม่สำเร็จ: " + error.message);
+      }
+    };
+
+    if(file2){
+      resizeImage(file2, function(img2){
+        if(file3){ resizeImage(file3, function(img3){ send(img2, img3); }); }
+        else { send(img2, ""); }
+      });
+    } else {
+      send("", "");
+    }
+  });
+}
+
+async function toggleAvailability(status){
+  const rentalId = document.getElementById("mgRentalId").value.trim();
+  const pin = document.getElementById("mgPin").value.trim();
+
+  if(rentalId === "" || pin === ""){ alert("กรุณากรอกรหัสประกาศและ PIN"); return; }
+
+  try {
+    const result = await apiPost('setRentalAvailability', { rentalId: rentalId, pin: pin, availability: status });
+    if(!result.success){ alert("รหัสประกาศหรือ PIN ไม่ถูกต้อง"); return; }
+    alert(status === "rented" ? "ปรับเป็นไม่ว่างแล้ว ✅" : "ปรับเป็นว่างแล้ว ✅");
+  } catch(error){
+    alert("อัปเดตไม่สำเร็จ: " + error.message);
+  }
+}
+
+window.addEventListener("load", loadHome);
+
+</script>
+</body>
+</html>

@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ขายรถมือสอง - พระแสงเดลิเวอรี่</title>
+
+<style>
+body{ font-family:Arial;font-size:20px; background:#eef4ff; padding:20px; }
+.card{ background:#fff; border-radius:20px; padding:20px; margin-bottom:16px; box-shadow:0 3px 10px rgba(0,0,0,.08); }
+h1,h2{ color:#1d4ed8; }
+button{ width:100%; background:#1d4ed8; color:white; border:none; border-radius:10px; padding:12px; font-size:16px; cursor:pointer; margin-top:8px; }
+input,select,textarea{ width:100%; padding:12px; border-radius:10px; border:1px solid #ccc; font-size:16px; box-sizing:border-box; margin-top:8px; font-family:Arial; }
+.back-btn{ background:#555; }
+
+.type-tabs{ display:flex; gap:8px; margin-bottom:16px; }
+.type-tab-btn{ flex:1; background:#f0f0f0; color:#666; font-weight:700; margin-top:0; }
+.type-tab-btn.active{ background:#1d4ed8; color:#fff; }
+
+.car-grid{ display:flex; flex-direction:column; gap:14px; }
+.car-card{ background:#f5f8ff; border-radius:16px; overflow:hidden; cursor:pointer; box-shadow:0 3px 8px rgba(0,0,0,.06); display:flex; flex-direction:row; align-items:stretch; }
+.car-card img{ width:140px; min-width:140px; height:auto; object-fit:contain; background:#e6edff; padding:6px; box-sizing:border-box; }
+.car-card-body{ padding:12px; flex:1; display:flex; flex-direction:column; justify-content:center; }
+.car-card b{ display:block; font-size:15px; margin-bottom:4px; }
+.car-meta{ font-size:12.5px; color:#777; margin-bottom:6px; }
+.car-price{ color:#1d4ed8; font-weight:bold; font-size:15px; }
+
+.badge{ display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; margin-top:2px; margin-right:4px; }
+.badge-dealer{ background:#dbeafe; color:#1d4ed8; }
+.badge-available{ background:#e6f9ee; color:#1a9c52; }
+.badge-sold{ background:#fdeaea; color:#d63333; }
+
+.detail-gallery{ display:flex; gap:8px; overflow-x:auto; margin-bottom:12px; }
+.detail-gallery img{ width:140px; height:100px; object-fit:cover; border-radius:12px; flex:0 0 auto; }
+
+.pkg-info{ background:#f5f8ff; border-radius:14px; padding:14px; font-size:13.5px; color:#444; margin-bottom:12px; line-height:1.7; }
+.pkg-info b{ color:#1d4ed8; }
+
+.slots-bar{ background:#eef2ff; border-radius:10px; height:10px; overflow:hidden; margin:8px 0; }
+.slots-fill{ background:#1d4ed8; height:100%; }
+.car-mini-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid #eee; font-size:14px; }
+.mini-btn{ width:auto; padding:6px 12px; font-size:12.5px; margin:0; }
+</style>
+</head>
+<body>
+
+<button class="back-btn" onclick="goHome()">← กลับหน้าแรก</button>
+
+<div id="app"></div>
+
+<script src="api.js"></script>
+<script>
+
+function escapeHtml(text){
+  return String(text || "")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+function goHome(){
+  window.location.href = "index.html";
+}
+
+let allCars = [];
+let regLat = "";
+let regLng = "";
+
+async function loadHome(){
+  document.getElementById("app").innerHTML = "กำลังโหลด...";
+  try {
+    const cars = await apiGet('getApprovedCars');
+    allCars = cars || [];
+    renderHome();
+  } catch(error){
+    document.getElementById("app").innerHTML = "โหลดข้อมูลไม่สำเร็จ: " + error.message;
+  }
+}
+
+function renderHome(){
+  let html = '<h1>🚗 ขายรถมือสอง</h1>';
+  html += '<div class="card"><div class="car-grid">';
+
+  if(allCars.length === 0){ html += '<p>ยังไม่มีประกาศขายรถ</p>'; }
+
+  allCars.forEach(function(c){
+    const isAvailable = c.availability !== "sold";
+    html += '<div class="car-card" onclick="openDetail(\'' + escapeHtml(c.carId) + '\')">';
+    html += '<img src="' + escapeHtml(c.image1 || "") + '">';
+    html += '<div class="car-card-body">';
+    html += '<div>';
+    if(c.sellerType === "dealer"){ html += '<span class="badge badge-dealer">เต็นท์รถ</span>'; }
+    html += '<span class="badge ' + (isAvailable ? "badge-available" : "badge-sold") + '">' + (isAvailable ? "ยังไม่ขาย" : "ขายแล้ว") + '</span>';
+    html += '</div>';
+    html += '<b>' + escapeHtml(c.brand) + ' ' + escapeHtml(c.model) + ' ปี ' + escapeHtml(String(c.year)) + '</b>';
+    html += '<div class="car-meta">เลขไมล์ ' + (c.mileage ? Number(c.mileage).toLocaleString() + ' กม.' : '-') + '</div>';
+    html += '<span class="car-price">' + Number(c.price).toLocaleString() + ' บาท</span>';
+    html += '</div></div>';
+  });
+
+  html += '</div></div>';
+
+  html += '<div class="card"><h2>📢 ลงขายรถของคุณ</h2>';
+  html += '<div class="pkg-info"><b>เจ้าของขายเอง 199.-</b> ลงได้ 1 คัน ใช้ได้ 30 วัน หรือจนกว่าจะขายได้</div>';
+  html += '<button onclick="showRegisterCar()">ลงประกาศขายรถ (เจ้าของขายเอง)</button>';
+  html += '<div class="pkg-info" style="margin-top:14px;"><b>นายหน้า/เต็นท์รถ 599.-/เดือน</b> ลงได้สูงสุด 10 คันพร้อมกัน คันไหนขายได้ปิดแล้วลงคันใหม่แทนได้ทันที</div>';
+  html += '<button onclick="showDealerSection()" style="background:#7c3aed;">สมัคร/จัดการเต็นท์รถ</button>';
+  html += '</div>';
+
+  document.getElementById("app").innerHTML = html;
+}
+
+async function openDetail(carId){
+  document.getElementById("app").innerHTML = "กำลังโหลด...";
+  try {
+    const c = await apiGet('getCarDetail', { carId: carId });
+    if(!c){ alert("ไม่พบประกาศนี้"); renderHome(); return; }
+    renderDetail(c);
+  } catch(error){
+    alert("โหลดไม่สำเร็จ: " + error.message);
+  }
+}
+
+function renderDetail(c){
+  const isAvailable = c.availability !== "sold";
+  let html = '<button onclick="renderHome()" style="background:#555;">← กลับรายการรถ</button>';
+  html += '<div class="card">';
+
+  html += '<div class="detail-gallery">';
+  [c.image1, c.image2, c.image3].forEach(function(img){
+    if(img){ html += '<img src="' + escapeHtml(img) + '">'; }
+  });
+  html += '</div>';
+
+  html += '<h2>' + escapeHtml(c.brand) + ' ' + escapeHtml(c.model) + ' ปี ' + escapeHtml(String(c.year)) + '</h2>';
+  html += '<span class="badge ' + (isAvailable ? "badge-available" : "badge-sold") + '">' + (isAvailable ? "ยังไม่ขาย" : "ขายแล้ว") + '</span>';
+  if(c.sellerType === "dealer"){ html += ' <span class="badge badge-dealer">เต็นท์รถ</span>'; }
+
+  html += '<p class="car-price" style="font-size:20px;margin-top:10px;">' + Number(c.price).toLocaleString() + ' บาท</p>';
+  html += '<p>🛣️ เลขไมล์: ' + (c.mileage ? Number(c.mileage).toLocaleString() + ' กม.' : '-') + '</p>';
+  html += '<p>⚙️ เกียร์: ' + escapeHtml(c.transmission || "-") + ' | ⛽ เชื้อเพลิง: ' + escapeHtml(c.fuelType || "-") + '</p>';
+
+  if(c.description){ html += '<p style="margin-top:10px;">' + escapeHtml(c.description) + '</p>'; }
+
+  html += '<p style="margin-top:10px;">📍 ที่อยู่: ' + escapeHtml(c.address || "-") + '</p>';
+  if(c.lat && c.lng){
+    html += '<p><a href="https://maps.google.com/?q=' + c.lat + ',' + c.lng + '" target="_blank">🗺️ เปิดแผนที่</a></p>';
+  }
+
+  html += '<a href="tel:' + escapeHtml(String(c.ownerPhone).replace(/-/g,"")) + '">';
+  html += '<button style="margin-top:16px;background:#25d366;">📞 โทรติดต่อผู้ขาย (' + escapeHtml(c.ownerPhone) + ')</button>';
+  html += '</a>';
+
+  html += '</div>';
+  document.getElementById("app").innerHTML = html;
+}
+
+// ---------- ลงประกาศขายรถ (เจ้าของขายเอง) ----------
+function showRegisterCar(){
+  let html = '<button onclick="renderHome()" style="background:#555;">← กลับหน้าแรก</button>';
+
+  html += '<div class="card"><h2>📝 ลงประกาศขายรถ (เจ้าของขายเอง)</h2>';
+  html += '<div class="pkg-info">แพ็ก 199.- ใช้ได้ 30 วัน หรือจนกว่าจะขายได้</div>';
+  html += '<input id="regOwnerName" placeholder="ชื่อเจ้าของรถ">';
+  html += '<input id="regOwnerPhone" placeholder="เบอร์โทรติดต่อ">';
+  html += '<input id="regBrand" placeholder="ยี่ห้อ เช่น Toyota">';
+  html += '<input id="regModel" placeholder="รุ่น เช่น Vios">';
+  html += '<input id="regYear" type="number" placeholder="ปีรถ เช่น 2020">';
+  html += '<input id="regMileage" type="number" placeholder="เลขไมล์ (กม.)">';
+  html += '<select id="regTransmission"><option value="">-- เลือกเกียร์ --</option><option value="ออโต้">ออโต้</option><option value="ธรรมดา">ธรรมดา</option></select>';
+  html += '<select id="regFuelType"><option value="">-- เลือกเชื้อเพลิง --</option><option value="เบนซิน">เบนซิน</option><option value="ดีเซล">ดีเซล</option><option value="ไฮบริด">ไฮบริด</option><option value="ไฟฟ้า">ไฟฟ้า</option></select>';
+  html += '<input id="regPrice" type="number" placeholder="ราคา (บาท)">';
+  html += '<textarea id="regDescription" rows="2" placeholder="รายละเอียดเพิ่มเติม เช่น สภาพรถ ประวัติการซ่อม"></textarea>';
+  html += '<textarea id="regAddress" rows="2" placeholder="ที่อยู่/จุดนัดดูรถ"></textarea>';
+
+  html += '<button onclick="getRegLocation()" style="margin-top:14px;">📍 ปักหมุดตำแหน่ง</button>';
+  html += '<p id="regLocationText">ยังไม่ได้ปักหมุด</p>';
+
+  html += '<label style="display:block;margin-top:10px;">รูปรถ (อย่างน้อย 1 รูป)</label>';
+  html += '<input type="file" id="regImage1" accept="image/*">';
+  html += '<input type="file" id="regImage2" accept="image/*">';
+  html += '<input type="file" id="regImage3" accept="image/*">';
+
+  html += '<button onclick="submitCar()" style="background:#2ecc71;margin-top:14px;">ส่งประกาศให้แอดมินตรวจ</button>';
+  html += '</div>';
+
+  html += '<div class="card"><h2>⚙️ จัดการประกาศของฉัน</h2>';
+  html += '<input id="mgCarId" placeholder="รหัสประกาศ">';
+  html += '<input id="mgPin" placeholder="PIN 4 หลัก">';
+  html += '<button onclick="toggleCarAvailability(\'sold\')" style="background:#e74c3c;">🔴 ทำเครื่องหมายว่าขายแล้ว</button>';
+  html += '<button onclick="toggleCarAvailability(\'available\')" style="background:#2ecc71;">🟢 ทำเครื่องหมายว่ายังไม่ขาย</button>';
+  html += '</div>';
+
+  document.getElementById("app").innerHTML = html;
+}
+
+function getRegLocation(){
+  navigator.geolocation.getCurrentPosition(
+    function(position){
+      regLat = position.coords.latitude;
+      regLng = position.coords.longitude;
+      document.getElementById("regLocationText").innerHTML = "ปักหมุดแล้ว ✅";
+    },
+    function(){ alert("กรุณาเปิด GPS ก่อน"); }
+  );
+}
+
+function resizeImage(file, callback){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const canvas = document.createElement("canvas");
+      const maxWidth = 700;
+      const scale = maxWidth / img.width;
+      canvas.width = maxWidth;
+      canvas.height = img.height * scale;
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      callback(canvas.toDataURL("image/jpeg", 0.6).split(",")[1]);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function submitCar(){
+  const ownerName = document.getElementById("regOwnerName").value.trim();
+  const ownerPhone = document.getElementById("regOwnerPhone").value.trim();
+  const brand = document.getElementById("regBrand").value.trim();
+  const model = document.getElementById("regModel").value.trim();
+  const year = document.getElementById("regYear").value;
+  const mileage = document.getElementById("regMileage").value;
+  const transmission = document.getElementById("regTransmission").value;
+  const fuelType = document.getElementById("regFuelType").value;
+  const price = document.getElementById("regPrice").value;
+  const description = document.getElementById("regDescription").value.trim();
+  const address = document.getElementById("regAddress").value.trim();
+
+  const file1 = document.getElementById("regImage1").files[0];
+  const file2 = document.getElementById("regImage2").files[0];
+  const file3 = document.getElementById("regImage3").files[0];
+
+  if(!ownerName || !ownerPhone || !brand || !model || !year || !price || !address){
+    alert("กรุณากรอกข้อมูลให้ครบ (ชื่อ, เบอร์, ยี่ห้อ, รุ่น, ปี, ราคา, ที่อยู่)");
+    return;
+  }
+  if(regLat === "" || regLng === ""){ alert("กรุณาปักหมุดตำแหน่งก่อน"); return; }
+  if(!file1){ alert("กรุณาแนบรูปอย่างน้อย 1 รูป"); return; }
+
+  resizeImage(file1, function(img1){
+    const send = async function(img2, img3){
+      try {
+        const result = await apiPost('registerCar', { data: {
+          ownerName: ownerName, ownerPhone: ownerPhone, brand: brand, model: model,
+          year: year, mileage: mileage, transmission: transmission, fuelType: fuelType,
+          price: price, description: description, address: address, lat: regLat, lng: regLng,
+          image1: img1, image2: img2 || "", image3: img3 || ""
+        }});
+        alert(
+          "ส่งประกาศแล้ว ✅\n\n" +
+          "รหัสประกาศ: " + result.carId + "\n" +
+          "PIN: " + result.pin + "\n\n" +
+          "กรุณาเก็บไว้ใช้จัดการประกาศ\nรอแอดมินอนุมัติก่อนแสดงผลจริง"
+        );
+        renderHome();
+      } catch(error){
+        alert("ส่งประกาศไม่สำเร็จ: " + error.message);
+      }
+    };
+
+    if(file2){
+      resizeImage(file2, function(img2){
+        if(file3){ resizeImage(file3, function(img3){ send(img2, img3); }); }
+        else { send(img2, ""); }
+      });
+    } else {
+      send("", "");
+    }
+  });
+}
+
+async function toggleCarAvailability(status){
+  const carId = document.getElementById("mgCarId").value.trim();
+  const pin = document.getElementById("mgPin").value.trim();
+
+  if(carId === "" || pin === ""){ alert("กรุณากรอกรหัสประกาศและ PIN"); return; }
+
+  try {
+    const result = await apiPost('setCarAvailability', { carId: carId, pin: pin, availability: status });
+    if(!result.success){ alert("รหัสประกาศหรือ PIN ไม่ถูกต้อง"); return; }
+    alert(status === "sold" ? "ปรับเป็นขายแล้ว ✅" : "ปรับเป็นยังไม่ขาย ✅");
+  } catch(error){
+    alert("อัปเดตไม่สำเร็จ: " + error.message);
+  }
+}
+
+// ---------- เต็นท์/นายหน้ารถ ----------
+function showDealerSection(){
+  let html = '<button onclick="renderHome()" style="background:#555;">← กลับหน้าแรก</button>';
+
+  html += '<div class="card"><h2>🏢 สมัครเป็นเต็นท์/นายหน้ารถ</h2>';
+  html += '<div class="pkg-info"><b>599.-/เดือน</b> ลงรถได้สูงสุด 10 คันพร้อมกัน คันไหนขายได้ปิดแล้วลงคันใหม่แทนได้ทันที ไม่ต้องรอครบเดือน</div>';
+  html += '<input id="dealerName" placeholder="ชื่อเต็นท์/นายหน้า">';
+  html += '<input id="dealerPhone" placeholder="เบอร์โทรติดต่อ">';
+  html += '<button onclick="submitDealer()" style="background:#7c3aed;">ส่งใบสมัคร</button>';
+  html += '</div>';
+
+  html += '<div class="card"><h2>⚙️ จัดการเต็นท์ของฉัน</h2>';
+  html += '<input id="dlDealerId" placeholder="รหัสเต็นท์ 8 หลัก">';
+  html += '<input id="dlPin" placeholder="PIN 4 หลัก">';
+  html += '<button onclick="loadDealerCars()">🔍 ดูรถของเต็นท์ฉัน</button>';
+  html += '<div id="dealerSlotsBox" style="margin-top:12px;"></div>';
+  html += '<div id="dealerCarsBox"></div>';
+  html += '<button onclick="showAddDealerCarForm()" style="background:#2ecc71;margin-top:12px;">+ เพิ่มรถคันใหม่</button>';
+  html += '</div>';
+
+  document.getElementById("app").innerHTML = html;
+}
+
+async function submitDealer(){
+  const dealerName = document.getElementById("dealerName").value.trim();
+  const dealerPhone = document.getElementById("dealerPhone").value.trim();
+
+  if(!dealerName || !dealerPhone){ alert("กรุณากรอกชื่อและเบอร์โทร"); return; }
+
+  try {
+    const result = await apiPost('registerCarDealer', { data: { dealerName: dealerName, dealerPhone: dealerPhone } });
+    alert(
+      "ส่งใบสมัครแล้ว ✅\n\n" +
+      "รหัสเต็นท์: " + result.dealerId + "\n" +
+      "PIN: " + result.pin + "\n\n" +
+      "กรุณาเก็บไว้ใช้จัดการรถของเต็นท์\nรอแอดมินอนุมัติก่อนเริ่มลงรถได้"
+    );
+    renderHome();
+  } catch(error){
+    alert("สมัครไม่สำเร็จ: " + error.message);
+  }
+}
+
+async function loadDealerCars(){
+  const dealerId = document.getElementById("dlDealerId").value.trim();
+  const pin = document.getElementById("dlPin").value.trim();
+
+  if(!dealerId || !pin){ alert("กรุณากรอกรหัสเต็นท์และ PIN"); return; }
+
+  document.getElementById("dealerCarsBox").innerHTML = "กำลังโหลด...";
+
+  try {
+    const result = await apiGet('getDealerCars', { dealerId: dealerId, pin: pin });
+    if(!result.success){
+      document.getElementById("dealerCarsBox").innerHTML = "<p style='color:red;'>รหัสเต็นท์หรือ PIN ไม่ถูกต้อง หรือยังไม่ได้รับการอนุมัติ</p>";
+      document.getElementById("dealerSlotsBox").innerHTML = "";
+      return;
+    }
+    renderDealerCars(result.cars, result.maxSlots);
+  } catch(error){
+    alert("โหลดไม่สำเร็จ: " + error.message);
+  }
+}
+
+function renderDealerCars(cars, maxSlots){
+  const activeCount = cars.filter(function(c){ return c.availability === "available"; }).length;
+  const pct = Math.min(100, Math.round((activeCount / maxSlots) * 100));
+
+  document.getElementById("dealerSlotsBox").innerHTML =
+    '<b>ใช้ไปแล้ว ' + activeCount + ' / ' + maxSlots + ' คัน</b>' +
+    '<div class="slots-bar"><div class="slots-fill" style="width:' + pct + '%;"></div></div>';
+
+  if(cars.length === 0){
+    document.getElementById("dealerCarsBox").innerHTML = "<p>ยังไม่มีรถในระบบ</p>";
+    return;
+  }
+
+  let html = "";
+  cars.forEach(function(c){
+    const isAvailable = c.availability !== "sold";
+    html += '<div class="car-mini-row">';
+    html += '<div>' + escapeHtml(c.brand) + ' ' + escapeHtml(c.model) + ' ปี ' + escapeHtml(String(c.year)) + '<br><span style="color:#888;font-size:12px;">' + Number(c.price).toLocaleString() + ' บาท · ' + (isAvailable ? "ยังไม่ขาย" : "ขายแล้ว") + '</span></div>';
+    if(isAvailable){
+      html += '<button class="mini-btn" style="background:#e74c3c;" onclick="quickToggleDealerCar(\'' + c.carId + '\',\'sold\')">ปิด (ขายแล้ว)</button>';
+    } else {
+      html += '<button class="mini-btn" style="background:#2ecc71;" onclick="quickToggleDealerCar(\'' + c.carId + '\',\'available\')">เปิดขายอีกครั้ง</button>';
+    }
+    html += '</div>';
+  });
+
+  document.getElementById("dealerCarsBox").innerHTML = html;
+}
+
+async function quickToggleDealerCar(carId, status){
+  const dealerId = document.getElementById("dlDealerId").value.trim();
+  const pin = document.getElementById("dlPin").value.trim();
+
+  try {
+    const result = await apiPost('setDealerCarAvailability', { carId: carId, dealerId: dealerId, pin: pin, availability: status });
+    if(!result.success){ alert("อัปเดตไม่สำเร็จ"); return; }
+    loadDealerCars();
+  } catch(error){
+    alert("อัปเดตไม่สำเร็จ: " + error.message);
+  }
+}
+
+function showAddDealerCarForm(){
+  const dealerId = document.getElementById("dlDealerId").value.trim();
+  const pin = document.getElementById("dlPin").value.trim();
+
+  if(!dealerId || !pin){ alert("กรุณากรอกรหัสเต็นท์และ PIN ก่อน (ช่องด้านบน)"); return; }
+
+  let html = '<button onclick="showDealerSection()" style="background:#555;">← กลับ</button>';
+  html += '<div class="card"><h2>+ เพิ่มรถคันใหม่</h2>';
+  html += '<input id="dcContactPhone" placeholder="เบอร์โทรติดต่อสำหรับคันนี้">';
+  html += '<input id="dcBrand" placeholder="ยี่ห้อ เช่น Toyota">';
+  html += '<input id="dcModel" placeholder="รุ่น เช่น Vios">';
+  html += '<input id="dcYear" type="number" placeholder="ปีรถ">';
+  html += '<input id="dcMileage" type="number" placeholder="เลขไมล์ (กม.)">';
+  html += '<select id="dcTransmission"><option value="">-- เลือกเกียร์ --</option><option value="ออโต้">ออโต้</option><option value="ธรรมดา">ธรรมดา</option></select>';
+  html += '<select id="dcFuelType"><option value="">-- เลือกเชื้อเพลิง --</option><option value="เบนซิน">เบนซิน</option><option value="ดีเซล">ดีเซล</option><option value="ไฮบริด">ไฮบริด</option><option value="ไฟฟ้า">ไฟฟ้า</option></select>';
+  html += '<input id="dcPrice" type="number" placeholder="ราคา (บาท)">';
+  html += '<textarea id="dcDescription" rows="2" placeholder="รายละเอียดเพิ่มเติม"></textarea>';
+  html += '<textarea id="dcAddress" rows="2" placeholder="ที่อยู่/จุดนัดดูรถ"></textarea>';
+  html += '<button onclick="getDealerCarLocation()" style="margin-top:14px;">📍 ปักหมุดตำแหน่ง</button>';
+  html += '<p id="dcLocationText">ยังไม่ได้ปักหมุด</p>';
+  html += '<label style="display:block;margin-top:10px;">รูปรถ (อย่างน้อย 1 รูป)</label>';
+  html += '<input type="file" id="dcImage1" accept="image/*">';
+  html += '<input type="file" id="dcImage2" accept="image/*">';
+  html += '<input type="file" id="dcImage3" accept="image/*">';
+  html += '<button onclick="submitDealerCar()" style="background:#2ecc71;margin-top:14px;">เพิ่มรถคันนี้</button>';
+  html += '</div>';
+
+  document.getElementById("app").innerHTML = html;
+}
+
+function getDealerCarLocation(){
+  navigator.geolocation.getCurrentPosition(
+    function(position){
+      regLat = position.coords.latitude;
+      regLng = position.coords.longitude;
+      document.getElementById("dcLocationText").innerHTML = "ปักหมุดแล้ว ✅";
+    },
+    function(){ alert("กรุณาเปิด GPS ก่อน"); }
+  );
+}
+
+function submitDealerCar(){
+  const dealerId = document.getElementById("dlDealerId").value.trim();
+  const pin = document.getElementById("dlPin").value.trim();
+
+  const contactPhone = document.getElementById("dcContactPhone").value.trim();
+  const brand = document.getElementById("dcBrand").value.trim();
+  const model = document.getElementById("dcModel").value.trim();
+  const year = document.getElementById("dcYear").value;
+  const mileage = document.getElementById("dcMileage").value;
+  const transmission = document.getElementById("dcTransmission").value;
+  const fuelType = document.getElementById("dcFuelType").value;
+  const price = document.getElementById("dcPrice").value;
+  const description = document.getElementById("dcDescription").value.trim();
+  const address = document.getElementById("dcAddress").value.trim();
+
+  const file1 = document.getElementById("dcImage1").files[0];
+  const file2 = document.getElementById("dcImage2").files[0];
+  const file3 = document.getElementById("dcImage3").files[0];
+
+  if(!brand || !model || !year || !price || !address){
+    alert("กรุณากรอกข้อมูลให้ครบ (ยี่ห้อ, รุ่น, ปี, ราคา, ที่อยู่)");
+    return;
+  }
+  if(regLat === "" || regLng === ""){ alert("กรุณาปักหมุดตำแหน่งก่อน"); return; }
+  if(!file1){ alert("กรุณาแนบรูปอย่างน้อย 1 รูป"); return; }
+
+  resizeImage(file1, function(img1){
+    const send = async function(img2, img3){
+      try {
+        const result = await apiPost('addCarByDealer', { data: {
+          dealerId: dealerId, pin: pin, contactPhone: contactPhone,
+          brand: brand, model: model, year: year, mileage: mileage,
+          transmission: transmission, fuelType: fuelType, price: price,
+          description: description, address: address, lat: regLat, lng: regLng,
+          image1: img1, image2: img2 || "", image3: img3 || ""
+        }});
+        if(!result.success){ alert(result.message || "เพิ่มรถไม่สำเร็จ"); return; }
+        alert("เพิ่มรถเรียบร้อย ✅ (ใช้โควตาไปแล้ว " + result.slotsUsed + "/" + result.maxSlots + " คัน)");
+        showDealerSection();
+      } catch(error){
+        alert("เพิ่มรถไม่สำเร็จ: " + error.message);
+      }
+    };
+
+    if(file2){
+      resizeImage(file2, function(img2){
+        if(file3){ resizeImage(file3, function(img3){ send(img2, img3); }); }
+        else { send(img2, ""); }
+      });
+    } else {
+      send("", "");
+    }
+  });
+}
+
+window.addEventListener("load", loadHome);
+
+</script>
+</body>
+</html>

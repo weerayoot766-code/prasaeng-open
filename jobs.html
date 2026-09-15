@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ประกาศหางาน/รับสมัครงาน - พระแสงเดลิเวอรี่</title>
+
+<style>
+body{ font-family:Arial;font-size:20px; background:#f0fdf7; padding:20px; }
+.card{ background:#fff; border-radius:20px; padding:20px; margin-bottom:16px; box-shadow:0 3px 10px rgba(0,0,0,.08); }
+h1,h2{ color:#0f766e; }
+button{ width:100%; background:#0f766e; color:white; border:none; border-radius:10px; padding:12px; font-size:16px; cursor:pointer; margin-top:8px; }
+input,select,textarea{ width:100%; padding:12px; border-radius:10px; border:1px solid #ccc; font-size:16px; box-sizing:border-box; margin-top:8px; font-family:Arial; }
+.back-btn{ background:#555; }
+
+.side-tabs{ display:flex; gap:8px; margin-bottom:16px; }
+.side-tab-btn{ flex:1; background:#f0f0f0; color:#666; font-weight:700; margin-top:0; }
+.side-tab-btn.active{ background:#0f766e; color:#fff; }
+
+.job-card{ background:#f0fdf7; border-radius:14px; padding:14px; margin-bottom:12px; cursor:pointer; box-shadow:0 3px 8px rgba(0,0,0,.06); }
+.job-card b{ display:block; font-size:15px; margin-bottom:4px; }
+.job-meta{ font-size:12.5px; color:#666; }
+.job-salary{ color:#0f766e; font-weight:bold; font-size:14px; margin-top:4px; }
+
+.badge{ display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; margin-bottom:6px; margin-right:4px; }
+.badge-urgent{ background:#fdeaea; color:#d63333; }
+.badge-open{ background:#e6f9ee; color:#1a9c52; }
+.badge-closed{ background:#eee; color:#999; }
+
+.pkg-info{ background:#e6f7f4; border-radius:14px; padding:12px; font-size:13.5px; color:#075e56; margin-bottom:12px; }
+</style>
+</head>
+<body>
+
+<button class="back-btn" onclick="goHome()">← กลับหน้าแรก</button>
+
+<div id="app"></div>
+
+<script src="api.js"></script>
+<script>
+
+function escapeHtml(text){
+  return String(text || "")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+function goHome(){
+  window.location.href = "index.html";
+}
+
+let currentSide = "jobs";
+
+function loadHome(){
+  renderHome();
+}
+
+function renderHome(){
+  let html = '<h1>💼 หางาน / รับสมัครงาน</h1>';
+  html += '<div class="pkg-info">ลงประกาศฟรีทั้งสองฝั่ง ไม่มีค่าใช้จ่าย</div>';
+
+  html += '<div class="side-tabs">';
+  html += '<button class="side-tab-btn ' + (currentSide === "jobs" ? "active" : "") + '" onclick="switchSide(\'jobs\')">🏪 ตำแหน่งงานที่เปิดรับ</button>';
+  html += '<button class="side-tab-btn ' + (currentSide === "seekers" ? "active" : "") + '" onclick="switchSide(\'seekers\')">🙋 คนที่กำลังหางาน</button>';
+  html += '</div>';
+
+  html += '<div id="listBox">กำลังโหลด...</div>';
+
+  html += '<div class="card">';
+  if(currentSide === "jobs"){
+    html += '<h2>📢 มีตำแหน่งเปิดรับ?</h2>';
+    html += '<button onclick="showRegisterJob()">ลงประกาศรับสมัครงาน (ฟรี)</button>';
+  } else {
+    html += '<h2>📝 กำลังหางานอยู่?</h2>';
+    html += '<button onclick="showRegisterSeeker()" style="background:#7c3aed;">ลงประกาศหางาน (ฟรี)</button>';
+  }
+  html += '</div>';
+
+  document.getElementById("app").innerHTML = html;
+  loadList();
+}
+
+function switchSide(side){
+  currentSide = side;
+  renderHome();
+}
+
+async function loadList(){
+  const box = document.getElementById("listBox");
+  try {
+    if(currentSide === "jobs"){
+      const jobs = await apiGet('getApprovedJobs');
+      renderJobList(jobs || []);
+    } else {
+      const seekers = await apiGet('getApprovedJobSeekers');
+      renderSeekerList(seekers || []);
+    }
+  } catch(error){
+    box.innerHTML = "โหลดไม่สำเร็จ: " + error.message;
+  }
+}
+
+function renderJobList(jobs){
+  const box = document.getElementById("listBox");
+  if(jobs.length === 0){ box.innerHTML = "<p style='text-align:center;color:#999;'>ยังไม่มีตำแหน่งงานเปิดรับตอนนี้</p>"; return; }
+
+  let html = "";
+  jobs.forEach(function(j){
+    const isOpen = j.availability !== "closed";
+    html += '<div class="job-card" onclick="openJobDetail(\'' + j.jobId + '\')">';
+    if(j.urgent){ html += '<span class="badge badge-urgent">⚡ ด่วน</span>'; }
+    html += '<span class="badge ' + (isOpen ? "badge-open" : "badge-closed") + '">' + (isOpen ? "เปิดรับอยู่" : "ปิดรับแล้ว") + '</span>';
+    html += '<b>' + escapeHtml(j.position) + '</b>';
+    html += '<div class="job-meta">' + escapeHtml(j.employerName) + ' · ' + escapeHtml(j.jobType) + '</div>';
+    html += '<div class="job-salary">' + escapeHtml(j.salary) + '</div>';
+    html += '</div>';
+  });
+  box.innerHTML = html;
+}
+
+function renderSeekerList(seekers){
+  const box = document.getElementById("listBox");
+  if(seekers.length === 0){ box.innerHTML = "<p style='text-align:center;color:#999;'>ยังไม่มีคนลงประกาศหางานตอนนี้</p>"; return; }
+
+  let html = "";
+  seekers.forEach(function(s){
+    const isLooking = s.availability !== "not-looking";
+    html += '<div class="job-card" onclick="openSeekerDetail(\'' + s.seekerId + '\')">';
+    html += '<span class="badge ' + (isLooking ? "badge-open" : "badge-closed") + '">' + (isLooking ? "กำลังหางาน" : "หางานได้แล้ว") + '</span>';
+    html += '<b>' + escapeHtml(s.name) + ' — อยากทำ: ' + escapeHtml(s.desiredPosition) + '</b>';
+    html += '<div class="job-meta">ทักษะ: ' + escapeHtml(s.skills || "-") + '</div>';
+    html += '<div class="job-meta">ว่างช่วง: ' + escapeHtml(s.availableTime || "-") + '</div>';
+    html += '</div>';
+  });
+  box.innerHTML = html;
+}
+
+async function openJobDetail(jobId){
+  document.getElementById("app").innerHTML = "กำลังโหลด...";
+  try {
+    const j = await apiGet('getJobDetail', { jobId: jobId });
+    if(!j){ alert("ไม่พบประกาศนี้"); renderHome(); return; }
+    renderJobDetail(j);
+  } catch(error){
+    alert("โหลดไม่สำเร็จ: " + error.message);
+  }
+}
+
+function renderJobDetail(j){
+  const isOpen = j.availability !== "closed";
+  let html = '<button onclick="renderHome()" style="background:#555;">← กลับรายการงาน</button>';
+  html += '<div class="card">';
+  if(j.urgent){ html += '<span class="badge badge-urgent">⚡ ด่วน</span>'; }
+  html += '<span class="badge ' + (isOpen ? "badge-open" : "badge-closed") + '">' + (isOpen ? "เปิดรับอยู่" : "ปิดรับแล้ว") + '</span>';
+  html += '<h2>' + escapeHtml(j.position) + '</h2>';
+  html += '<p><b>' + escapeHtml(j.employerName) + '</b> · ' + escapeHtml(j.jobType) + '</p>';
+  html += '<p class="job-salary" style="font-size:18px;">' + escapeHtml(j.salary) + '</p>';
+  if(j.requirements){ html += '<p style="margin-top:10px;"><b>คุณสมบัติที่ต้องการ:</b><br>' + escapeHtml(j.requirements) + '</p>'; }
+  if(j.description){ html += '<p style="margin-top:10px;">' + escapeHtml(j.description) + '</p>'; }
+  if(j.address){ html += '<p style="margin-top:10px;">📍 ' + escapeHtml(j.address) + '</p>'; }
+  html += '<a href="tel:' + escapeHtml(String(j.employerPhone).replace(/-/g,"")) + '">';
+  html += '<button style="margin-top:16px;background:#25d366;">📞 โทรสอบถาม (' + escapeHtml(j.employerPhone) + ')</button>';
+  html += '</a>';
+  html += '</div>';
+  document.getElementById("app").innerHTML = html;
+}
+
+async function openSeekerDetail(seekerId){
+  document.getElementById("app").innerHTML = "กำลังโหลด...";
+  try {
+    const s = await apiGet('getJobSeekerDetail', { seekerId: seekerId });
+    if(!s){ alert("ไม่พบประกาศนี้"); renderHome(); return; }
+    renderSeekerDetail(s);
+  } catch(error){
+    alert("โหลดไม่สำเร็จ: " + error.message);
+  }
+}
+
+function renderSeekerDetail(s){
+  const isLooking = s.availability !== "not-looking";
+  let html = '<button onclick="renderHome()" style="background:#555;">← กลับรายการคนหางาน</button>';
+  html += '<div class="card">';
+  html += '<span class="badge ' + (isLooking ? "badge-open" : "badge-closed") + '">' + (isLooking ? "กำลังหางาน" : "หางานได้แล้ว") + '</span>';
+  html += '<h2>' + escapeHtml(s.name) + '</h2>';
+  html += '<p><b>อยากทำงาน:</b> ' + escapeHtml(s.desiredPosition) + '</p>';
+  if(s.skills){ html += '<p><b>ทักษะ/ประสบการณ์:</b><br>' + escapeHtml(s.skills) + '</p>'; }
+  if(s.availableTime){ html += '<p><b>ช่วงเวลาที่ว่าง:</b> ' + escapeHtml(s.availableTime) + '</p>'; }
+  if(s.description){ html += '<p style="margin-top:10px;">' + escapeHtml(s.description) + '</p>'; }
+  html += '<a href="tel:' + escapeHtml(String(s.phone).replace(/-/g,"")) + '">';
+  html += '<button style="margin-top:16px;background:#25d366;">📞 โทรติดต่อ (' + escapeHtml(s.phone) + ')</button>';
+  html += '</a>';
+  html += '</div>';
+  document.getElementById("app").innerHTML = html;
+}
+
+// ---------- ลงประกาศรับสมัครงาน (นายจ้าง) ----------
+function showRegisterJob(){
+  let html = '<button onclick="renderHome()" style="background:#555;">← กลับหน้าแรก</button>';
+  html += '<div class="card"><h2>📝 ลงประกาศรับสมัครงาน (ฟรี)</h2>';
+  html += '<input id="jbEmployerName" placeholder="ชื่อร้าน/นายจ้าง">';
+  html += '<input id="jbEmployerPhone" placeholder="เบอร์โทรติดต่อ">';
+  html += '<input id="jbPosition" placeholder="ตำแหน่งงาน เช่น พนักงานขาย">';
+  html += '<select id="jbJobType"><option value="">-- เลือกประเภทงาน --</option><option value="งานประจำ">งานประจำ</option><option value="พาร์ทไทม์">พาร์ทไทม์</option><option value="รายวัน">รายวัน</option></select>';
+  html += '<input id="jbSalary" placeholder="ค่าจ้าง เช่น 9,000-12,000 บาท/เดือน หรือ 400 บาท/วัน">';
+  html += '<textarea id="jbRequirements" rows="2" placeholder="คุณสมบัติที่ต้องการ"></textarea>';
+  html += '<textarea id="jbDescription" rows="2" placeholder="รายละเอียดเพิ่มเติม"></textarea>';
+  html += '<input id="jbAddress" placeholder="สถานที่ทำงาน">';
+  html += '<label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:15px;"><input type="checkbox" id="jbUrgent" style="width:auto;margin:0;"> ⚡ ต้องการด่วน (ขึ้นก่อนประกาศอื่น)</label>';
+  html += '<button onclick="submitJob()" style="background:#2ecc71;margin-top:14px;">ส่งประกาศให้แอดมินตรวจ</button>';
+  html += '</div>';
+
+  html += '<div class="card"><h2>⚙️ จัดการประกาศของฉัน</h2>';
+  html += '<input id="mgJobId" placeholder="รหัสประกาศ">';
+  html += '<input id="mgJobPin" placeholder="PIN 4 หลัก">';
+  html += '<button onclick="toggleJobAvailability(\'closed\')" style="background:#e74c3c;">🔴 ปิดรับสมัครแล้ว</button>';
+  html += '<button onclick="toggleJobAvailability(\'open\')" style="background:#2ecc71;">🟢 เปิดรับสมัครอีกครั้ง</button>';
+  html += '</div>';
+
+  document.getElementById("app").innerHTML = html;
+}
+
+async function submitJob(){
+  const employerName = document.getElementById("jbEmployerName").value.trim();
+  const employerPhone = document.getElementById("jbEmployerPhone").value.trim();
+  const position = document.getElementById("jbPosition").value.trim();
+  const jobType = document.getElementById("jbJobType").value;
+  const salary = document.getElementById("jbSalary").value.trim();
+  const requirements = document.getElementById("jbRequirements").value.trim();
+  const description = document.getElementById("jbDescription").value.trim();
+  const address = document.getElementById("jbAddress").value.trim();
+  const urgent = document.getElementById("jbUrgent").checked;
+
+  if(!employerName || !employerPhone || !position || !jobType || !salary){
+    alert("กรุณากรอกข้อมูลให้ครบ (ชื่อร้าน, เบอร์, ตำแหน่ง, ประเภทงาน, ค่าจ้าง)");
+    return;
+  }
+
+  try {
+    const result = await apiPost('registerJob', { data: {
+      employerName: employerName, employerPhone: employerPhone, position: position,
+      jobType: jobType, salary: salary, requirements: requirements,
+      description: description, address: address, urgent: urgent
+    }});
+    alert(
+      "ส่งประกาศแล้ว ✅\n\n" +
+      "รหัสประกาศ: " + result.jobId + "\n" +
+      "PIN: " + result.pin + "\n\n" +
+      "กรุณาเก็บไว้ใช้จัดการประกาศ\nรอแอดมินอนุมัติก่อนแสดงผลจริง"
+    );
+    renderHome();
+  } catch(error){
+    alert("ส่งประกาศไม่สำเร็จ: " + error.message);
+  }
+}
+
+async function toggleJobAvailability(status){
+  const jobId = document.getElementById("mgJobId").value.trim();
+  const pin = document.getElementById("mgJobPin").value.trim();
+  if(!jobId || !pin){ alert("กรุณากรอกรหัสประกาศและ PIN"); return; }
+
+  try {
+    const result = await apiPost('setJobAvailability', { jobId: jobId, pin: pin, availability: status });
+    if(!result.success){ alert("รหัสประกาศหรือ PIN ไม่ถูกต้อง"); return; }
+    alert(status === "closed" ? "ปิดรับสมัครแล้ว ✅" : "เปิดรับสมัครอีกครั้งแล้ว ✅");
+  } catch(error){
+    alert("อัปเดตไม่สำเร็จ: " + error.message);
+  }
+}
+
+// ---------- ลงประกาศหางาน (คนหางาน) ----------
+function showRegisterSeeker(){
+  let html = '<button onclick="renderHome()" style="background:#555;">← กลับหน้าแรก</button>';
+  html += '<div class="card"><h2>📝 ลงประกาศหางาน (ฟรี)</h2>';
+  html += '<input id="skName" placeholder="ชื่อ-นามสกุล">';
+  html += '<input id="skPhone" placeholder="เบอร์โทรติดต่อ">';
+  html += '<input id="skPosition" placeholder="ตำแหน่งที่อยากทำ เช่น พนักงานขาย, งานช่าง">';
+  html += '<textarea id="skSkills" rows="2" placeholder="ทักษะ/ประสบการณ์ที่มี"></textarea>';
+  html += '<input id="skAvailableTime" placeholder="ช่วงเวลาที่ว่าง เช่น จันทร์-ศุกร์ เย็น, วันหยุดเสาร์อาทิตย์">';
+  html += '<textarea id="skDescription" rows="2" placeholder="รายละเอียดเพิ่มเติมเกี่ยวกับตัวเอง"></textarea>';
+  html += '<button onclick="submitSeeker()" style="background:#2ecc71;margin-top:14px;">ส่งประกาศให้แอดมินตรวจ</button>';
+  html += '</div>';
+
+  html += '<div class="card"><h2>⚙️ จัดการประกาศของฉัน</h2>';
+  html += '<input id="mgSeekerId" placeholder="รหัสประกาศ">';
+  html += '<input id="mgSeekerPin" placeholder="PIN 4 หลัก">';
+  html += '<button onclick="toggleSeekerAvailability(\'not-looking\')" style="background:#e74c3c;">🔴 หางานได้แล้ว (ไม่หาแล้ว)</button>';
+  html += '<button onclick="toggleSeekerAvailability(\'looking\')" style="background:#2ecc71;">🟢 กำลังหางานอีกครั้ง</button>';
+  html += '</div>';
+
+  document.getElementById("app").innerHTML = html;
+}
+
+async function submitSeeker(){
+  const name = document.getElementById("skName").value.trim();
+  const phone = document.getElementById("skPhone").value.trim();
+  const desiredPosition = document.getElementById("skPosition").value.trim();
+  const skills = document.getElementById("skSkills").value.trim();
+  const availableTime = document.getElementById("skAvailableTime").value.trim();
+  const description = document.getElementById("skDescription").value.trim();
+
+  if(!name || !phone || !desiredPosition){
+    alert("กรุณากรอกข้อมูลให้ครบ (ชื่อ, เบอร์, ตำแหน่งที่อยากทำ)");
+    return;
+  }
+
+  try {
+    const result = await apiPost('registerJobSeeker', { data: {
+      name: name, phone: phone, desiredPosition: desiredPosition,
+      skills: skills, availableTime: availableTime, description: description
+    }});
+    alert(
+      "ส่งประกาศแล้ว ✅\n\n" +
+      "รหัสประกาศ: " + result.seekerId + "\n" +
+      "PIN: " + result.pin + "\n\n" +
+      "กรุณาเก็บไว้ใช้จัดการประกาศ\nรอแอดมินอนุมัติก่อนแสดงผลจริง"
+    );
+    renderHome();
+  } catch(error){
+    alert("ส่งประกาศไม่สำเร็จ: " + error.message);
+  }
+}
+
+async function toggleSeekerAvailability(status){
+  const seekerId = document.getElementById("mgSeekerId").value.trim();
+  const pin = document.getElementById("mgSeekerPin").value.trim();
+  if(!seekerId || !pin){ alert("กรุณากรอกรหัสประกาศและ PIN"); return; }
+
+  try {
+    const result = await apiPost('setSeekerAvailability', { seekerId: seekerId, pin: pin, availability: status });
+    if(!result.success){ alert("รหัสประกาศหรือ PIN ไม่ถูกต้อง"); return; }
+    alert(status === "not-looking" ? "บันทึกว่าหางานได้แล้ว ✅" : "เปิดสถานะกำลังหางานอีกครั้งแล้ว ✅");
+  } catch(error){
+    alert("อัปเดตไม่สำเร็จ: " + error.message);
+  }
+}
+
+window.addEventListener("load", loadHome);
+
+</script>
+</body>
+</html>

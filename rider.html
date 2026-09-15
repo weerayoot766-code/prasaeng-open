@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>สมัครไรเดอร์ - พระแสงเดลิเวอรี่</title>
+<style>
+body{font-family:Arial;font-size:20px;background:#fff5fb;padding:20px;}
+.card{background:#fff;border-radius:20px;padding:24px;margin:0 auto;max-width:480px;box-shadow:0 3px 10px rgba(0,0,0,.08);}
+h2{color:#ff6b00;text-align:center;}
+input,select{width:100%;padding:14px;margin-bottom:14px;border-radius:10px;border:1px solid #ccc;font-size:16px;box-sizing:border-box;}
+label{display:block;margin-bottom:6px;font-weight:bold;font-size:14px;color:#444;}
+button{width:100%;background:#ff6b00;color:white;border:none;border-radius:10px;padding:14px;font-size:18px;cursor:pointer;}
+.back-btn{background:#555;margin-bottom:16px;}
+</style>
+</head>
+<body>
+
+<button class="back-btn" onclick="goBack()">← กลับหน้าหลัก</button>
+
+<div class="card">
+  <h2>🛵 สมัครเป็นไรเดอร์</h2>
+
+  <label>ชื่อ-นามสกุล</label>
+  <input id="riderName" placeholder="เช่น ประเสริฐ พุฒนาค">
+
+  <label>เบอร์โทร</label>
+  <input id="riderPhone" placeholder="เช่น 0812345678">
+
+  <label>Line ID</label>
+  <input id="line" placeholder="ไม่บังคับ">
+
+  <label>Facebook</label>
+  <input id="facebook" placeholder="ไม่บังคับ">
+
+  <label>บัญชีธนาคารรับเงิน</label>
+  <input id="bank" placeholder="เช่น กสิกร 123-4-56789-0 ชื่อ...">
+
+  <label>พาหนะ</label>
+  <select id="vehicle">
+    <option value="">-- เลือกพาหนะ --</option>
+    <option value="มอเตอร์ไซค์">มอเตอร์ไซค์</option>
+    <option value="รถยนต์">รถยนต์</option>
+  </select>
+
+  <label>ทะเบียนรถ</label>
+  <input id="plate" placeholder="เช่น กข 1234">
+
+  <label>รูปหน้าคู่กับทะเบียนรถ</label>
+  <input type="file" id="faceWithPlateImage" accept="image/*">
+
+  <label>รูปใบขับขี่</label>
+  <input type="file" id="driverLicenseImage" accept="image/*">
+
+  <label>รูปบัตรประชาชน</label>
+  <input type="file" id="idCardImage" accept="image/*">
+
+  <br>
+  <button id="submitBtn" onclick="submitRiderForm()">ส่งใบสมัคร</button>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h2>🔗 เชื่อมต่อ Telegram</h2>
+  <p style="font-size:14px;color:#666;text-align:center;">สมัครไปแล้วแต่ยังไม่เชื่อม Telegram? กรอกรหัสไรเดอร์แล้วกดได้เลย</p>
+  <label>รหัสไรเดอร์ (8 หลัก)</label>
+  <input id="reconnectRiderId" placeholder="เช่น 12345678">
+  <button onclick="connectTelegram()">เชื่อมต่อ Telegram</button>
+</div>
+
+<script src="api.js"></script>
+<script>
+
+function goBack(){
+  window.location.href = "index.html";
+}
+
+function compressImage(file, callback){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const canvas = document.createElement("canvas");
+      const maxWidth = 600;
+      const scale = maxWidth / img.width;
+      canvas.width = maxWidth;
+      canvas.height = img.height * scale;
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      callback(canvas.toDataURL("image/jpeg", 0.6).split(",")[1]);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function submitRiderForm(){
+  const riderName = document.getElementById("riderName").value.trim();
+  const riderPhone = document.getElementById("riderPhone").value.trim();
+  const line = document.getElementById("line").value.trim();
+  const facebook = document.getElementById("facebook").value.trim();
+  const bank = document.getElementById("bank").value.trim();
+  const vehicle = document.getElementById("vehicle").value;
+  const plate = document.getElementById("plate").value.trim();
+
+  const faceFile = document.getElementById("faceWithPlateImage").files[0];
+  const licenseFile = document.getElementById("driverLicenseImage").files[0];
+  const idFile = document.getElementById("idCardImage").files[0];
+
+  if(!riderName || !riderPhone || !vehicle || !plate){
+    alert("กรุณากรอกข้อมูลให้ครบ (ชื่อ, เบอร์, พาหนะ, ทะเบียน)");
+    return;
+  }
+  if(!faceFile || !licenseFile || !idFile){
+    alert("กรุณาแนบรูปให้ครบทั้ง 3 รูป");
+    return;
+  }
+
+  document.getElementById("submitBtn").innerHTML = "กำลังส่ง...";
+
+  compressImage(faceFile, function(faceBase64){
+    compressImage(licenseFile, function(licenseBase64){
+      compressImage(idFile, async function(idBase64){
+        try {
+          const result = await apiPost('registerRider', { data: {
+            riderName: riderName, riderPhone: riderPhone, line: line,
+            facebook: facebook, bank: bank, vehicle: vehicle, plate: plate,
+            faceWithPlateImage: faceBase64, driverLicenseImage: licenseBase64, idCardImage: idBase64
+          }});
+          showConnectStep(result.riderId);
+        } catch(error){
+          document.getElementById("submitBtn").innerHTML = "ส่งใบสมัคร";
+          alert("ส่งใบสมัครไม่สำเร็จ: " + error.message);
+        }
+      });
+    });
+  });
+}
+
+function connectTelegram(){
+  const riderId = document.getElementById("reconnectRiderId").value.trim();
+  if(!riderId){
+    alert("กรุณากรอกรหัสไรเดอร์");
+    return;
+  }
+  window.open("https://t.me/PhrasaengDelivery_bot?start=" + riderId, "_blank");
+}
+
+function showConnectStep(riderId){
+  document.body.innerHTML = `
+    <div class="card">
+      <h2>✅ ส่งใบสมัครแล้ว</h2>
+      <p style="text-align:center;font-size:16px;">รหัสไรเดอร์ของคุณ: <b>${riderId}</b></p>
+      <p style="text-align:center;color:#666;font-size:14px;">เก็บรหัสนี้ไว้ แล้วกดปุ่มด้านล่างเพื่อเชื่อมต่อ Telegram สำหรับรับแจ้งเตือนงานใหม่</p>
+      <a href="https://t.me/PhrasaengDelivery_bot?start=${riderId}" target="_blank"
+         style="display:block;text-align:center;background:#ff6b00;color:white;border-radius:10px;padding:14px;font-size:18px;text-decoration:none;margin-top:10px;">
+        🔗 เชื่อมต่อ Telegram รับงาน
+      </a>
+      <button class="back-btn" style="margin-top:16px;" onclick="window.location.href='index.html'">← กลับหน้าหลัก</button>
+    </div>
+  `;
+}
+
+</script>
+
+</body>
+</html>

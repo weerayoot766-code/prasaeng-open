@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ลงโฆษณากับเรา - พระแสงเดลิเวอรี่</title>
+
+<style>
+body{ font-family:Arial; font-size:20px; background:#fff5fb; padding:20px; }
+.back-btn{ width:100%; background:#555; color:#fff; border:none; border-radius:10px; padding:12px; font-size:16px; cursor:pointer; margin-bottom:16px; }
+
+.hero{
+  background:linear-gradient(135deg,#ff4fa3,#ff007f);
+  border-radius:22px; padding:26px 20px; text-align:center; color:#fff; margin-bottom:18px;
+  box-shadow:0 8px 20px rgba(255,0,120,.2);
+}
+.hero h1{ margin:0 0 8px; font-size:26px; }
+.hero p{ margin:0; font-size:14px; opacity:.9; line-height:1.6; }
+
+.card{ background:#fff; border-radius:20px; padding:22px; margin-bottom:18px; box-shadow:0 3px 10px rgba(0,0,0,.08); }
+
+.pkg-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.pkg-head h2{ margin:0; font-size:20px; color:#333; }
+.pkg-price{ font-size:15px; font-weight:900; color:#fff; padding:6px 16px; border-radius:20px; white-space:nowrap; }
+.price-pink{ background:#ff2f92; }
+.price-purple{ background:#7c3aed; }
+
+.pkg-desc{ font-size:14px; color:#666; margin:10px 0 16px; line-height:1.7; }
+.pkg-desc b{ color:#333; }
+
+.phone-mock{
+  background:#f6f7f9; border:8px solid #222; border-radius:28px;
+  width:230px; margin:0 auto 12px; overflow:hidden; box-shadow:0 6px 16px rgba(0,0,0,.15);
+}
+.phone-mock .screen{ padding:10px; }
+
+.mock-banner-slot{
+  background:linear-gradient(135deg,#ffe066,#ffb703);
+  border-radius:12px; height:56px; display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:900; color:#7a4a00; text-align:center; padding:4px;
+  border:3px solid #ff2f92; position:relative;
+}
+.mock-arrow{
+  position:absolute; top:-14px; right:-6px; background:#ff2f92; color:#fff; font-size:10px;
+  font-weight:900; padding:3px 8px; border-radius:10px; white-space:nowrap;
+}
+
+.mock-hero-mini{
+  background:linear-gradient(160deg,#ff5cae,#e6127a); border-radius:10px; height:70px; margin-bottom:8px;
+}
+.mock-btn-row{ display:flex; gap:4px; margin-bottom:8px; }
+.mock-btn-row div{ flex:1; height:24px; border-radius:6px; }
+.mock-shop-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; position:relative; }
+.mock-shop-grid div{ background:#fff; border:1px solid #eee; border-radius:8px; height:34px; }
+.mock-shop-grid div.highlight{ border:3px solid #7c3aed; background:#f3ebff; }
+
+.feature-list{ list-style:none; padding:0; margin:14px 0 0; font-size:13.5px; color:#555; }
+.feature-list li{ padding:6px 0 6px 26px; position:relative; }
+.feature-list li::before{ content:"✅"; position:absolute; left:0; }
+
+.cta-btn{ width:100%; border:none; border-radius:12px; padding:14px; color:#fff; font-size:16px; font-weight:900; cursor:pointer; margin-top:6px; }
+.cta-pink{ background:linear-gradient(135deg,#ff4fa3,#ff007f); }
+.cta-purple{ background:linear-gradient(135deg,#a855f7,#7c3aed); }
+
+.contact-box{ text-align:center; margin-top:6px; }
+.contact-box a{ display:block; background:#06C755; color:#fff; text-decoration:none; padding:14px; border-radius:12px; font-weight:bold; font-size:15px; margin-top:10px; }
+
+.note{ font-size:12px; color:#999; text-align:center; margin-top:16px; line-height:1.7; }
+</style>
+</head>
+<body>
+
+<button class="back-btn" onclick="goHome()">← กลับหน้าแรก</button>
+
+<div class="hero">
+  <h1>📣 ลงโฆษณากับพระแสงเดลิเวอรี่</h1>
+  <p>ร้านของคุณจะได้ขึ้นหน้าแรกให้คนในพระแสงเห็นทุกวัน<br>เลือกแพ็กเกจที่เหมาะกับร้านคุณได้เลย</p>
+</div>
+
+<div class="card">
+  <div class="pkg-head">
+    <h2>🖼️ แบนเนอร์วิ่งไปมา</h2>
+    <span class="pkg-price price-pink">199.-/เดือน</span>
+  </div>
+  <p class="pkg-desc">
+    รูปโฆษณาร้านของคุณจะขึ้น<b>สไลด์หมุนวนบนสุดของหน้าแรก</b> เป็นจุดแรกที่ลูกค้าเห็นทันทีที่เปิดแอป สลับวนกับร้านอื่นๆ ทุก 3 วินาที
+  </p>
+
+  <div class="phone-mock">
+    <div class="screen">
+      <div class="mock-banner-slot">
+        รูปโฆษณาร้านคุณ
+        <span class="mock-arrow">👆 ตรงนี้!</span>
+      </div>
+      <br>
+      <div class="mock-btn-row">
+        <div style="background:#ff4fa3;"></div>
+        <div style="background:#999;"></div>
+        <div style="background:#a855f7;"></div>
+      </div>
+      <div class="mock-shop-grid">
+        <div></div><div></div><div></div><div></div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="feature-list">
+    <li>ขึ้นบนสุดของหน้าแรก เห็นก่อนใครทุกครั้งที่เปิดแอป</li>
+    <li>กดที่รูปแล้วพาลูกค้าเข้าร้านคุณได้ทันที</li>
+    <li>เปลี่ยนรูปโฆษณาได้ทุกเดือน</li>
+  </ul>
+
+  <button class="cta-btn cta-pink" onclick="inquire('แบนเนอร์วิ่งไปมา (199.-/เดือน)')">
+    📩 สนใจแพ็กนี้
+  </button>
+</div>
+
+<div class="card">
+  <div class="pkg-head">
+    <h2>🏪 ร้านค้าขายดี</h2>
+    <span class="pkg-price price-purple">99.-/เดือน</span>
+  </div>
+  <p class="pkg-desc">
+    โลโก้ร้านของคุณจะขึ้นอยู่ใน<b>แถว "ร้านค้าขายดี"</b> หน้าแรก ให้ลูกค้ากดเข้าร้านคุณได้ง่ายๆ โดยไม่ต้องค้นหา
+  </p>
+
+  <div class="phone-mock">
+    <div class="screen">
+      <div class="mock-hero-mini"></div>
+      <br>
+      <div class="mock-btn-row">
+        <div style="background:#ff4fa3;"></div>
+        <div style="background:#999;"></div>
+        <div style="background:#a855f7;"></div>
+      </div>
+      <div class="mock-shop-grid">
+        <div></div>
+        <div class="highlight"></div>
+        <div></div><div></div>
+      </div>
+      <div class="mock-arrow" style="position:static;display:inline-block;margin-top:6px;">👆 ร้านคุณอยู่ตรงนี้</div>
+    </div>
+  </div>
+
+  <ul class="feature-list">
+    <li>ขึ้นอยู่ในแถวร้านแนะนำหน้าแรก ตลอดเดือน</li>
+    <li>กดโลโก้แล้วเข้าเมนู/สินค้าร้านคุณได้เลย</li>
+    <li>เหมาะกับร้านที่อยากให้คนจำหน้าร้านได้ง่าย</li>
+  </ul>
+
+  <button class="cta-btn cta-purple" onclick="inquire('ร้านค้าขายดี (99.-/เดือน)')">
+    📩 สนใจแพ็กนี้
+  </button>
+</div>
+
+<div class="card contact-box">
+  <h2 style="margin-top:0;">💬 สอบถาม / สมัครลงโฆษณา</h2>
+  <p style="font-size:14px;color:#666;">ทักแอดมินได้เลย บอกชื่อร้าน + แพ็กที่สนใจ ทีมงานจะติดต่อกลับภายในวันเดียว</p>
+  <a id="lineLink" href="https://line.me/ti/p/~Prungyapharmacy" target="_blank">
+    💬 แอดไลน์สอบถาม (ID: Prungyapharmacy)
+  </a>
+</div>
+
+<p class="note">
+  * ราคาอาจปรับเปลี่ยนได้ตามช่วงโปรโมชัน — สอบถามราคาล่าสุดกับแอดมินก่อนโอนเงินทุกครั้ง<br>
+  * ชำระแล้วจะเริ่มขึ้นโฆษณาภายใน 1-2 วันทำการ
+</p>
+
+<script>
+function goHome(){
+  window.location.href = "index.html";
+}
+
+function inquire(packageName){
+  const msg = "สนใจลงโฆษณาแพ็ก: " + packageName;
+  alert("กำลังพาไปแอดไลน์ครับ — พิมพ์ข้อความนี้ส่งแอดมินได้เลย:\n\n\"" + msg + "\"");
+  window.open("https://line.me/ti/p/~Prungyapharmacy", "_blank");
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ส่งของกับแฟลช - พระแสงเดลิเวอรี่</title>
+
+<style>
+body{ font-family:Arial; background:#fff2f0; padding:20px; }
+.card{ background:#fff; border-radius:20px; padding:24px; margin-bottom:16px; box-shadow:0 3px 10px rgba(0,0,0,.08); text-align:center; }
+h1{ color:#e6522c; margin-top:10px; }
+.back-btn{ width:100%; background:#555; color:#fff; border:none; border-radius:10px; padding:12px; font-size:16px; cursor:pointer; margin-bottom:16px; }
+.flash-logo{ width:90px; height:90px; border-radius:20px; background:#ffece8; display:flex; align-items:center; justify-content:center; font-size:40px; margin:0 auto 10px; }
+.info-row{ text-align:left; margin:14px 0; font-size:15px; line-height:1.6; }
+.info-row b{ color:#e6522c; }
+.flash-btn{ display:block; width:100%; background:linear-gradient(135deg,#ff6b3d,#e6522c); color:#fff; border:none; border-radius:12px; padding:16px; font-size:17px; font-weight:bold; cursor:pointer; margin-top:16px; text-decoration:none; box-sizing:border-box; }
+.call-btn{ display:block; width:100%; background:#25d366; color:#fff; border:none; border-radius:12px; padding:14px; font-size:15px; cursor:pointer; margin-top:10px; text-decoration:none; box-sizing:border-box; }
+</style>
+</head>
+<body>
+
+<button class="back-btn" onclick="goHome()">← กลับหน้าแรก</button>
+
+<div class="card">
+  <div class="flash-logo">📦</div>
+  <h1>ส่งของกับแฟลช</h1>
+  <p style="color:#888;">จุดรับพัสดุ Flash Express ประจำร้านซุปเปอร์ทเวนตี้</p>
+
+  <div id="storeInfoBox">กำลังโหลดข้อมูลร้าน...</div>
+
+  <a class="flash-btn" href="https://www.flashexpress.co.th" target="_blank">
+    🚚 สร้างรายการส่งของ / ติดตามพัสดุ กับ Flash Express
+  </a>
+</div>
+<div class="card">
+  <img src="https://i.postimg.cc/C1GSVr7z/f93293c1-8492-4160-a9cc-0d5faef82470-1.jpg" style="width:100%;border-radius:14px;margin-bottom:10px;">
+  <img src="https://i.postimg.cc/yx64C1kC/09246e36-1195-4b0b-8a82-778d81fda54d.jpg" style="width:100%;border-radius:14px;margin-bottom:10px;">
+  <img src="https://i.postimg.cc/66MFGN80/0a40aafb-b656-4f70-ae5f-5a27461bc0e4.jpg" style="width:100%;border-radius:14px;margin-bottom:10px;">
+  <img src="https://i.postimg.cc/W1gZxTrg/d891ec99-ce65-4412-9860-cb6c5edc7542.jpg" style="width:100%;border-radius:14px;margin-bottom:10px;">
+  <img src="https://i.postimg.cc/Y9pyhXk6/5f9289e4-97ab-4786-b5d0-50dcf3f121ae.jpg" style="width:100%;border-radius:14px;">
+</div>
+
+<script src="api.js"></script>
+<script>
+
+function escapeHtml(text){
+  return String(text || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+function goHome(){
+  window.location.href = "index.html";
+}
+
+async function loadStoreInfo(){
+  try {
+    const store = await apiGet('getStoreInfo', { shopName: "ซุปเปอร์ทเวนตี้" });
+    const box = document.getElementById("storeInfoBox");
+
+    if(!store){
+      box.innerHTML = "<p>ไม่พบข้อมูลร้าน</p>";
+      return;
+    }
+
+    let html = "";
+    html += '<div class="info-row"><b>🏪 ร้าน:</b> ' + escapeHtml(store.name) + '</div>';
+    html += '<div class="info-row"><b>📞 เบอร์โทร:</b> ' + escapeHtml(store.phone) + '</div>';
+
+    if(store.lat && store.lng){
+      html += '<div class="info-row"><b>📍 แผนที่:</b> <a href="https://maps.google.com/?q=' + store.lat + ',' + store.lng + '" target="_blank">เปิดแผนที่ร้าน</a></div>';
+    }
+
+    box.innerHTML = html;
+
+    document.getElementById("callBtnBox").innerHTML =
+      '<a class="call-btn" href="tel:' + escapeHtml(String(store.phone).replace(/-/g,"")) + '">📞 โทรสอบถามร้าน</a>';
+  } catch(error){
+    document.getElementById("storeInfoBox").innerHTML = "<p>โหลดข้อมูลร้านไม่สำเร็จ</p>";
+  }
+}
+
+window.addEventListener("load", loadStoreInfo);
+
+</script>
+
+<div id="callBtnBox"></div>
+
+</body>
+</html>

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ระบบจองคิว - พระแสงเดลิเวอรี่</title>
+
+<style>
+body{ font-family:Arial; font-size:20px;background:#fff5fb; padding:20px; }
+.card{ background:#fff; border-radius:20px; padding:20px; margin-bottom:16px; box-shadow:0 3px 10px rgba(0,0,0,.08); }
+h1,h2{ color:#7c3aed; }
+button{ width:100%; background:#7c3aed; color:white; border:none; border-radius:10px; padding:12px; font-size:16px; cursor:pointer; margin-top:8px; }
+input,select{ width:100%; padding:12px; border-radius:10px; border:1px solid #ccc; font-size:16px; box-sizing:border-box; margin-top:8px; }
+.cat-tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.cat-tab{ width:auto; padding:8px 14px; border-radius:20px; background:#f0f0f0; color:#666; font-size:13px; margin:0; }
+.cat-tab.active{ background:#7c3aed; color:#fff; }
+.shop-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+.shop-card{ background:#faf5ff; border-radius:14px; padding:14px; text-align:center; cursor:pointer; }
+.shop-card b{ display:block; margin-top:6px; font-size:14px; }
+.shop-card span{ font-size:12px; color:#888; }
+.slot-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+.slot{ text-align:center; padding:10px 0; border-radius:8px; border:1px solid #ccc; font-size:13px; cursor:pointer; }
+.slot.booked{ background:#f0f0f0; color:#bbb; text-decoration:line-through; cursor:not-allowed; }
+.slot.selected{ background:#7c3aed; color:#fff; border-color:#7c3aed; }
+.booking-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #eee; }
+.cancel-btn{ width:auto; background:#e74c3c; padding:6px 12px; font-size:13px; margin:0; }
+.back-btn{ background:#555; }
+</style>
+</head>
+<body>
+
+<button class="back-btn" onclick="goHome()">← กลับหน้าแรก</button>
+
+<div id="app"></div>
+
+<script src="api.js"></script>
+<script>
+
+function escapeHtml(text){
+  return String(text || "")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+function goHome(){
+  window.location.href = "index.html";
+}
+
+let allShops = [];
+let selectedCategory = "ทั้งหมด";
+let selectedShop = null;
+let selectedDate = "";
+let selectedTime = "";
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+
+async function loadHome(){
+  selectedDate = todayStr();
+  document.getElementById("app").innerHTML = "กำลังโหลด...";
+
+  try {
+    const shops = await apiGet('getApprovedBookingShops');
+    allShops = shops || [];
+    renderShopList();
+  } catch(error){
+    document.getElementById("app").innerHTML = "โหลดร้านไม่สำเร็จ: " + error.message;
+  }
+}
+
+function renderShopList(){
+  const categories = ["ทั้งหมด"];
+  allShops.forEach(function(s){
+    if(categories.indexOf(s.category) === -1){ categories.push(s.category); }
+  });
+
+  let html = '<h1>📅 ระบบจองคิวร้านต่างๆ</h1>';
+
+  html += '<div class="card">';
+  html += '<div class="cat-tabs">';
+  categories.forEach(function(c){
+    html += '<button class="cat-tab ' + (c === selectedCategory ? "active" : "") + '" onclick="filterCategory(\'' + escapeHtml(c) + '\')">' + escapeHtml(c) + '</button>';
+  });
+  html += '</div>';
+
+  const filtered = selectedCategory === "ทั้งหมด" ? allShops : allShops.filter(function(s){ return s.category === selectedCategory; });
+
+  html += '<div class="shop-grid">';
+  if(filtered.length === 0){ html += '<p>ยังไม่มีร้านในหมวดนี้</p>'; }
+  filtered.forEach(function(s){
+    html += '<div class="shop-card" onclick="openShop(\'' + escapeHtml(s.shopId) + '\')">';
+    html += '<b>' + escapeHtml(s.name) + '</b>';
+    html += '<span>' + escapeHtml(s.category) + '</span>';
+    html += '</div>';
+  });
+  html += '</div></div>';
+
+  html += '<div class="card"><h2>🏪 สำหรับเจ้าของร้าน</h2>';
+  html += '<button onclick="showMerchantSection()">สมัคร / จัดการร้าน</button></div>';
+
+  document.getElementById("app").innerHTML = html;
+}
+
+function filterCategory(c){
+  selectedCategory = c;
+  renderShopList();
+}
+
+function openShop(shopId){
+  selectedShop = allShops.find(function(s){ return String(s.shopId) === String(shopId); });
+  selectedTime = "";
+  renderShopDetail();
+}
+
+function renderShopDetail(){
+  let html = '<button onclick="renderShopList()" style="background:#555;">← กลับเลือกร้าน</button>';
+
+  html += '<div class="card"><h2>' + escapeHtml(selectedShop.name) + '</h2>';
+  html += '<p>หมวด: ' + escapeHtml(selectedShop.category) + '<br>ที่อยู่: ' + escapeHtml(selectedShop.address || "-") + '<br>เบอร์: ' + escapeHtml(selectedShop.phone || "-") + '</p>';
+
+  html += '<label>เลือกวันที่</label>';
+  html += '<input type="date" id="bookingDate" value="' + selectedDate + '" onchange="dateChanged()">';
+
+  html += '<div id="slotBox">กำลังโหลดเวลาว่าง...</div>';
+  html += '</div>';
+
+  document.getElementById("app").innerHTML = html;
+  loadSlots();
+}
+
+function dateChanged(){
+  selectedDate = document.getElementById("bookingDate").value;
+  selectedTime = "";
+  loadSlots();
+}
+
+async function loadSlots(){
+  document.getElementById("slotBox").innerHTML = "กำลังโหลด...";
+
+  try {
+    const result = await apiGet('getBookingSlots', { shopId: selectedShop.shopId, date: selectedDate });
+    if(!result.success){
+      document.getElementById("slotBox").innerHTML = "<p>ไม่พบช่วงเวลาของร้านนี้</p>";
+      return;
+    }
+    renderSlots(result.slots);
+  } catch(error){
+    document.getElementById("slotBox").innerHTML = "โหลดเวลาไม่สำเร็จ: " + error.message;
+  }
+}
+
+function renderSlots(slots){
+  let html = '<div class="slot-grid">';
+
+  slots.forEach(function(s){
+    let cls = "slot";
+    if(s.booked) cls += " booked";
+    if(!s.booked && s.time === selectedTime) cls += " selected";
+    html += '<div class="' + cls + '" onclick="' + (s.booked ? "" : "pickSlot('" + s.time + "')") + '">' + s.time + '</div>';
+  });
+
+  html += '</div>';
+
+  if(selectedTime){
+    html += '<div style="margin-top:14px;">';
+    html += '<label>ชื่อผู้จอง</label><input id="custName" placeholder="ชื่อของคุณ">';
+    html += '<label>เบอร์โทร</label><input id="custPhone" placeholder="เบอร์โทร">';
+    html += '<button onclick="confirmBooking()" style="background:#2ecc71;">✅ ยืนยันจองคิว ' + selectedTime + ' น.</button>';
+    html += '</div>';
+  }
+
+  document.getElementById("slotBox").innerHTML = html;
+}
+
+function pickSlot(time){
+  selectedTime = time;
+  loadSlots();
+}
+
+async function confirmBooking(){
+  const name = document.getElementById("custName").value.trim();
+  const phone = document.getElementById("custPhone").value.trim();
+
+  if(name === "" || phone === ""){
+    alert("กรุณากรอกชื่อและเบอร์โทร");
+    return;
+  }
+
+  try {
+    const result = await apiPost('createBooking', { data: {
+      shopId: selectedShop.shopId, shopName: selectedShop.name, date: selectedDate,
+      time: selectedTime, customerName: name, customerPhone: phone
+    }});
+    if(!result.success){
+      alert(result.message || "จองไม่สำเร็จ");
+      loadSlots();
+      return;
+    }
+    alert("จองคิวสำเร็จ ✅\nหมายเลขคิว: " + result.bookingId + "\nเวลา: " + selectedTime + " น.");
+    selectedTime = "";
+    loadSlots();
+  } catch(error){
+    alert("จองไม่สำเร็จ: " + error.message);
+  }
+}
+
+function showMerchantSection(){
+  let html = '<button onclick="renderShopList()" style="background:#555;">← กลับหน้าแรก</button>';
+
+  html += '<div class="card"><h2>📝 สมัครร้านจองคิวใหม่</h2>';
+  html += '<input id="regName" placeholder="ชื่อร้าน">';
+  html += '<input id="regPhone" placeholder="เบอร์โทรร้าน">';
+  html += '<select id="regCategory">';
+  html += '<option value="">-- เลือกหมวดร้าน --</option>';
+  html += '<option value="ตัดผม">ตัดผม</option>';
+  html += '<option value="เสริมสวย">เสริมสวย</option>';
+  html += '<option value="ซ่อมมือถือ">ซ่อมมือถือ</option>';
+  html += '<option value="ร้านขายยา">ร้านขายยา</option>';
+  html += '<option value="คลินิกแพทย์">คลินิกแพทย์/</option>';
+  html += '<option value="คิวรถตู้พระแสง-สุราษฎร์">คิวรถตู้พระแสง-สุราษฎร์</option>';
+  html += '<option value="ล้างแอร์">ล้างแอร์</option>';
+  html += '<option value="อื่นๆ">อื่นๆ</option>';
+  html += '</select>';
+  html += '<input id="regAddress" placeholder="ที่อยู่ร้าน">';
+  html += '<button onclick="submitBookingShop()" style="background:#2ecc71;">ส่งใบสมัคร</button>';
+  html += '</div>';
+
+  html += '<div class="card"><h2>⚙️ จัดการร้านของฉัน</h2>';
+  html += '<input id="mgShopId" placeholder="รหัสร้าน 8 หลัก">';
+  html += '<input id="mgPin" placeholder="PIN 4 หลัก">';
+
+  html += '<label>เวลาเปิดรับคิว</label>';
+  html += '<input id="mgOpenTime" type="time" value="09:00">';
+  html += '<label>เวลาปิดรับคิว</label>';
+  html += '<input id="mgCloseTime" type="time" value="18:00">';
+  html += '<label>1 คิวใช้เวลา (นาที)</label>';
+  html += '<input id="mgSlotMinutes" type="number" value="30">';
+
+  html += '<button onclick="saveHours()" style="background:#2ecc71;">💾 บันทึกเวลา</button>';
+
+  html += '<label style="margin-top:16px;display:block;">🔔 รับแจ้งเตือนคิวใหม่เข้า Telegram ส่วนตัว</label>';
+  html += '<button onclick="connectShopTelegram()" style="background:#0088cc;">🔗 เชื่อมต่อ Telegram</button>';
+
+  html += '<label style="margin-top:16px;display:block;">ดูคิววันที่</label>';
+  html += '<input id="mgDate" type="date" value="' + todayStr() + '">';
+  html += '<button onclick="loadMyBookings()">🔍 ดูคิว</button>';
+  html += '<div id="myBookingsBox" style="margin-top:14px;"></div>';
+  html += '</div>';
+
+  document.getElementById("app").innerHTML = html;
+}
+
+async function submitBookingShop(){
+  const name = document.getElementById("regName").value.trim();
+  const phone = document.getElementById("regPhone").value.trim();
+  const category = document.getElementById("regCategory").value;
+  const address = document.getElementById("regAddress").value.trim();
+
+  if(name === "" || phone === "" || category === "" || address === ""){
+    alert("กรุณากรอกข้อมูลให้ครบ");
+    return;
+  }
+
+  try {
+    const result = await apiPost('registerBookingShop', { data: { name: name, phone: phone, category: category, address: address } });
+    alert(
+      "ส่งใบสมัครแล้ว ✅\n\n" +
+      "รหัสร้าน: " + result.shopId + "\n" +
+      "PIN: " + result.pin + "\n\n" +
+      "กรุณาเก็บไว้ใช้จัดการร้าน\nรอแอดมินอนุมัติก่อนเริ่มใช้งาน"
+    );
+    renderShopList();
+  } catch(error){
+    alert("สมัครไม่สำเร็จ: " + error.message);
+  }
+}
+
+async function saveHours(){
+  const shopId = document.getElementById("mgShopId").value.trim();
+  const pin = document.getElementById("mgPin").value.trim();
+  const openTime = document.getElementById("mgOpenTime").value;
+  const closeTime = document.getElementById("mgCloseTime").value;
+  const slotMinutes = document.getElementById("mgSlotMinutes").value;
+
+  if(shopId === "" || pin === ""){
+    alert("กรุณากรอกรหัสร้านและ PIN");
+    return;
+  }
+
+  try {
+    const result = await apiPost('setBookingShopHours', { shopId: shopId, pin: pin, openTime: openTime, closeTime: closeTime, slotMinutes: slotMinutes });
+    if(!result.success){ alert("รหัสร้านหรือ PIN ไม่ถูกต้อง"); return; }
+    alert("บันทึกเวลาแล้ว ✅");
+  } catch(error){
+    alert("บันทึกไม่สำเร็จ: " + error.message);
+  }
+}
+
+function connectShopTelegram(){
+  const shopId = document.getElementById("mgShopId").value.trim();
+  if(shopId === ""){ alert("กรุณากรอกรหัสร้านก่อน"); return; }
+  window.open("https://t.me/PhrasaengDelivery_bot?start=bkshop_" + shopId, "_blank");
+}
+
+async function loadMyBookings(){
+  const shopId = document.getElementById("mgShopId").value.trim();
+  const pin = document.getElementById("mgPin").value.trim();
+  const date = document.getElementById("mgDate").value;
+
+  if(shopId === "" || pin === ""){
+    alert("กรุณากรอกรหัสร้านและ PIN");
+    return;
+  }
+
+  document.getElementById("myBookingsBox").innerHTML = "กำลังโหลด...";
+
+  try {
+    const result = await apiGet('getShopBookingsByDate', { shopId: shopId, pin: pin, date: date });
+    if(!result.success){
+      document.getElementById("myBookingsBox").innerHTML = "<p style='color:red;'>รหัสร้านหรือ PIN ไม่ถูกต้อง</p>";
+      return;
+    }
+    renderMyBookings(result.bookings, shopId, pin, date);
+  } catch(error){
+    alert("โหลดไม่สำเร็จ: " + error.message);
+  }
+}
+
+function renderMyBookings(bookings, shopId, pin, date){
+  const box = document.getElementById("myBookingsBox");
+  if(bookings.length === 0){
+    box.innerHTML = "<p>ยังไม่มีคิวในวันนี้</p>";
+    return;
+  }
+
+  let html = "";
+  bookings.forEach(function(b){
+    html += '<div class="booking-row">';
+    html += '<div><b>' + b.time + '</b> — ' + escapeHtml(b.customerName) + '<br><span style="color:#888;font-size:12px;">' + escapeHtml(b.customerPhone) + '</span></div>';
+    html += '<button class="cancel-btn" onclick="cancelBooking(\'' + b.bookingId + '\',\'' + shopId + '\',\'' + pin + '\',\'' + date + '\')">ยกเลิก</button>';
+    html += '</div>';
+  });
+  box.innerHTML = html;
+}
+
+async function cancelBooking(bookingId, shopId, pin, date){
+  if(!confirm("ยืนยันยกเลิกคิวนี้?")) return;
+
+  try {
+    const result = await apiPost('cancelBookingByShop', { bookingId: bookingId, shopId: shopId, pin: pin });
+    if(!result.success){ alert("ยกเลิกไม่สำเร็จ"); return; }
+    alert("ยกเลิกคิวแล้ว");
+    document.getElementById("mgShopId").value = shopId;
+    document.getElementById("mgPin").value = pin;
+    document.getElementById("mgDate").value = date;
+    loadMyBookings();
+  } catch(error){
+    alert("ยกเลิกไม่สำเร็จ: " + error.message);
+  }
+}
+
+window.addEventListener("load", loadHome);
+
+</script>
+</body>
+</html>

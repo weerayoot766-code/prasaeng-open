@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>จัดการร้านค้า - พระแสงเดลิเวอรี่</title>
+
+<style>
+body{ font-family:Arial;font-size:20px; background:#faf5ff; padding:20px; }
+.card{ background:#fff; border-radius:20px; padding:20px; margin-bottom:16px; box-shadow:0 3px 10px rgba(0,0,0,.08); }
+h1,h2{ color:#7c3aed; }
+button{ width:100%; background:#7c3aed; color:white; border:none; border-radius:10px; padding:12px; font-size:16px; cursor:pointer; margin-top:8px; }
+input,select,textarea{ width:100%; padding:12px; border-radius:10px; border:1px solid #ccc; font-size:16px; box-sizing:border-box; margin-top:8px; font-family:Arial; }
+.back-btn{ background:#555; }
+
+.store-header{
+  background:linear-gradient(135deg,#a855f7,#7c3aed); border-radius:20px; padding:20px;
+  color:#fff; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;
+}
+.store-header .info b{ display:block; font-size:18px; }
+.store-header .info span{ font-size:13px; opacity:.85; }
+.logout-btn{ width:auto; background:rgba(255,255,255,.25); padding:8px 14px; font-size:13px; margin:0; }
+
+.store-toggle-card{ border-radius:14px; padding:14px; text-align:center; font-weight:700; cursor:pointer; margin-bottom:10px; }
+.store-toggle-card.is-open{ background:#e6f9ee; color:#1a9c52; border:2px solid #1a9c52; }
+.store-toggle-card.is-closed{ background:#fdeaea; color:#d63333; border:2px solid #d63333; }
+
+.prod-row{ border:1px solid #eee; border-radius:12px; padding:10px; margin-bottom:10px; display:flex; gap:10px; align-items:center; }
+.prod-row img{ width:60px; height:60px; object-fit:cover; border-radius:8px; background:#f5f5f5; }
+.prod-row .info{ flex:1; }
+.prod-row .edit-btn{ width:auto; background:#ff9900; margin:0; }
+</style>
+</head>
+<body>
+
+<button class="back-btn" onclick="goHome()">← กลับหน้าแรก</button>
+
+<div id="app"></div>
+
+<script src="api.js"></script>
+<script>
+
+function escapeHtml(text){
+  return String(text || "")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+function goHome(){
+  window.location.href = "index.html";
+}
+
+let currentStoreId = "";
+let currentPin = "";
+let currentStoreName = "";
+let myProductsCache = {};
+
+function loadHome(){
+  const savedId = localStorage.getItem("pd_shopStoreId");
+  const savedPin = localStorage.getItem("pd_shopPin");
+
+  if(savedId && savedPin){
+    tryLogin(savedId, savedPin, true);
+  } else {
+    renderLoginForm();
+  }
+}
+
+function renderLoginForm(message){
+  let html = '<h1>🏪 จัดการร้านค้า</h1>';
+  html += '<div class="card">';
+  if(message){
+    html += '<p style="color:#d63333;font-weight:bold;">' + escapeHtml(message) + '</p>';
+  }
+  html += '<p style="color:#666;font-size:14px;">กรอกรหัสร้านและ PIN ที่ได้รับตอนสมัครร้านค้า — ระบบจะจำไว้ให้ ไม่ต้องกรอกใหม่ทุกครั้ง</p>';
+  html += '<input id="loginStoreId" placeholder="รหัสร้าน 8 หลัก">';
+  html += '<input id="loginPin" placeholder="PIN 4 หลัก">';
+  html += '<button onclick="submitLogin()">เข้าสู่ระบบจัดการร้าน</button>';
+  html += '</div>';
+  document.getElementById("app").innerHTML = html;
+}
+
+function submitLogin(){
+  const storeId = document.getElementById("loginStoreId").value.trim();
+  const pin = document.getElementById("loginPin").value.trim();
+
+  if(!storeId || !pin){
+    alert("กรุณากรอกรหัสร้านและ PIN ให้ครบ");
+    return;
+  }
+  tryLogin(storeId, pin, false);
+}
+
+async function tryLogin(storeId, pin, isAutoLogin){
+  document.getElementById("app").innerHTML = "กำลังตรวจสอบ...";
+
+  try {
+    const result = await apiGet('verifyStore', { storeId: storeId, pin: pin });
+    if(!result.success){
+      localStorage.removeItem("pd_shopStoreId");
+      localStorage.removeItem("pd_shopPin");
+      renderLoginForm(isAutoLogin ? "" : "รหัสร้านหรือ PIN ไม่ถูกต้อง");
+      return;
+    }
+
+    currentStoreId = storeId;
+    currentPin = pin;
+    currentStoreName = result.storeName;
+
+    localStorage.setItem("pd_shopStoreId", storeId);
+    localStorage.setItem("pd_shopPin", pin);
+
+    loadDashboard();
+  } catch(error){
+    renderLoginForm("เชื่อมต่อไม่สำเร็จ: " + error.message);
+  }
+}
+
+function logout(){
+  if(!confirm("ออกจากระบบจัดการร้านนี้?")) return;
+  localStorage.removeItem("pd_shopStoreId");
+  localStorage.removeItem("pd_shopPin");
+  currentStoreId = "";
+  currentPin = "";
+  renderLoginForm();
+}
+
+async function loadDashboard(){
+  try {
+    const result = await apiGet('getProductsByStore', { storeId: currentStoreId, pin: currentPin });
+    if(!result.success){
+      localStorage.removeItem("pd_shopStoreId");
+      localStorage.removeItem("pd_shopPin");
+      renderLoginForm("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
+      return;
+    }
+    renderDashboard(result);
+  } catch(error){
+    alert("โหลดข้อมูลไม่สำเร็จ: " + error.message);
+  }
+}
+
+function renderDashboard(result){
+  myProductsCache = {};
+  result.products.forEach(function(p){ myProductsCache[p.rowIndex] = p; });
+
+  let html = '';
+
+  html += '<div class="store-header">';
+  html += '<div class="info"><b>' + escapeHtml(currentStoreName) + '</b><span>รหัสร้าน: ' + escapeHtml(currentStoreId) + '</span></div>';
+  html += '<button class="logout-btn" onclick="logout()">ออกจากระบบ</button>';
+  html += '</div>';
+
+  html += '<div class="' + (result.isOpen ? "store-toggle-card is-open" : "store-toggle-card is-closed") + '" onclick="toggleStoreOpen(' + result.isOpen + ')">';
+  html += result.isOpen ? '🟢 ร้านเปิดอยู่ — กดเพื่อปิดร้าน' : '🔴 ร้านปิดอยู่ — กดเพื่อเปิดร้าน';
+  html += '</div>';
+
+  html += '<div class="card"><h2>➕ เพิ่มเมนู/สินค้าใหม่</h2>';
+  html += '<select id="productCategory">';
+  html += '<option value="">-- เลือกหมวดสินค้า --</option>';
+  html += '<option value="อาหาร">อาหาร</option>';
+  html += '<option value="เครื่องดื่ม">เครื่องดื่ม</option>';
+  html += '<option value="ของใช้ในบ้าน">ของใช้ในบ้าน</option>';
+  html += '<option value="ยาและสุขภาพ">ยาและสุขภาพ</option>';
+  html += '<option value="ขนม">ขนม</option>';
+  html += '<option value="อื่นๆ">อื่นๆ</option>';
+  html += '</select>';
+  html += '<input id="productName" placeholder="ชื่อสินค้า เช่น ข้าวกะเพราไก่">';
+  html += '<input id="productPrice" type="number" placeholder="ราคา เช่น 50">';
+  html += '<input type="file" id="productImageFile" accept="image/*">';
+  html += '<input id="productDescription" placeholder="รายละเอียดสินค้า">';
+  html += '<button onclick="submitNewProduct()">ส่งเมนูให้แอดมินตรวจ</button>';
+  html += '</div>';
+
+  html += '<div class="card"><h2>📋 สินค้าของร้านฉัน</h2><div id="myProductList"></div></div>';
+
+  document.getElementById("app").innerHTML = html;
+  renderMyProducts(result.products);
+}
+
+async function toggleStoreOpen(currentlyOpen){
+  const newStatus = !currentlyOpen;
+  try {
+    const result = await apiPost('setStoreOpenStatus', { storeId: currentStoreId, pin: currentPin, isOpen: newStatus });
+    if(!result.success){ alert("เปลี่ยนสถานะไม่สำเร็จ"); return; }
+    loadDashboard();
+  } catch(error){
+    alert("เปลี่ยนสถานะไม่สำเร็จ: " + error.message);
+  }
+}
+
+function submitNewProduct(){
+  const category = document.getElementById("productCategory").value;
+  const name = document.getElementById("productName").value;
+  const price = document.getElementById("productPrice").value;
+  const file = document.getElementById("productImageFile").files[0];
+  const description = document.getElementById("productDescription").value;
+
+  if(name === ""){ alert("กรุณากรอกชื่อสินค้า"); return; }
+  if(price === ""){ alert("กรุณากรอกราคา"); return; }
+  if(!file){ alert("กรุณาเลือกรูปสินค้า"); return; }
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = async function(){
+      const canvas = document.createElement("canvas");
+      const maxWidth = 600;
+      const scale = maxWidth / img.width;
+      canvas.width = maxWidth;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const image = canvas.toDataURL("image/jpeg", 0.6);
+
+      try {
+        await apiPost('submitProduct', {
+          data: { shop: currentStoreName, category: category, name: name, price: price, image: image, description: description }
+        });
+        alert("ส่งเมนูแล้ว ✅ รอแอดมินอนุมัติ");
+        loadDashboard();
+      } catch(error){
+        alert("ส่งเมนูไม่สำเร็จ: " + error.message);
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderMyProducts(products){
+  const box = document.getElementById("myProductList");
+
+  if(products.length === 0){
+    box.innerHTML = "<p>ยังไม่มีสินค้าในร้าน</p>";
+    return;
+  }
+
+  let html = "";
+  products.forEach(function(p){
+    html +=
+      '<div id="prodRow_' + p.rowIndex + '" class="prod-row">' +
+        '<img src="' + escapeHtml(p.image || "") + '">' +
+        '<div class="info">' +
+          '<b>' + escapeHtml(p.name) + '</b><br>' +
+          '<span>' + Number(p.price) + ' บาท | ' + escapeHtml(p.category || "") + '</span><br>' +
+          '<span style="color:#888;font-size:13px;">สถานะ: ' + escapeHtml(p.status || "") + '</span>' +
+        '</div>' +
+        '<button class="edit-btn" onclick="startEditProduct(' + p.rowIndex + ')">✏️ แก้ไข</button>' +
+      '</div>';
+  });
+  box.innerHTML = html;
+}
+
+function startEditProduct(rowIndex){
+  const p = myProductsCache[rowIndex];
+  const card = document.getElementById("prodRow_" + rowIndex);
+
+  card.innerHTML =
+    '<div style="width:100%;">' +
+      '<input id="editName_' + rowIndex + '" value="' + escapeHtml(p.name) + '" placeholder="ชื่อสินค้า">' +
+      '<input id="editPrice_' + rowIndex + '" type="number" value="' + Number(p.price) + '" placeholder="ราคา">' +
+      '<select id="editCategory_' + rowIndex + '">' +
+        '<option value="อาหาร">อาหาร</option>' +
+        '<option value="เครื่องดื่ม">เครื่องดื่ม</option>' +
+        '<option value="ของใช้ในบ้าน">ของใช้ในบ้าน</option>' +
+        '<option value="ยาและสุขภาพ">ยาและสุขภาพ</option>' +
+        '<option value="ขนม">ขนม</option>' +
+        '<option value="อื่นๆ">อื่นๆ</option>' +
+      '</select>' +
+      '<input id="editDescription_' + rowIndex + '" value="' + escapeHtml(p.description || "") + '" placeholder="รายละเอียดสินค้า">' +
+      '<input type="file" id="editImageFile_' + rowIndex + '" accept="image/*">' +
+      '<p style="font-size:12px;color:#888;">(ไม่เลือกไฟล์ = ใช้รูปเดิม)</p>' +
+      '<button onclick="saveEditedProduct(' + rowIndex + ')" style="background:#2ecc71;">💾 บันทึก</button>' +
+      '<button onclick="loadDashboard()" style="background:#999;">ยกเลิก</button>' +
+    '</div>';
+
+  document.getElementById("editCategory_" + rowIndex).value = p.category || "";
+}
+
+function saveEditedProduct(rowIndex){
+  const p = myProductsCache[rowIndex];
+  const name = document.getElementById("editName_" + rowIndex).value;
+  const price = document.getElementById("editPrice_" + rowIndex).value;
+  const category = document.getElementById("editCategory_" + rowIndex).value;
+  const description = document.getElementById("editDescription_" + rowIndex).value;
+  const file = document.getElementById("editImageFile_" + rowIndex).files[0];
+
+  if(name === "" || price === ""){ alert("กรุณากรอกชื่อสินค้าและราคา"); return; }
+
+  async function doSave(imageBase64){
+    try {
+      const result = await apiPost('updateProduct', { data: {
+        rowIndex: rowIndex, shop: p.shop, category: category, name: name, price: price,
+        description: description, image: imageBase64 || ""
+      }});
+      if(!result.success){ alert(result.message || "บันทึกไม่สำเร็จ"); return; }
+      alert("บันทึกสินค้าแล้ว ✅");
+      loadDashboard();
+    } catch(error){
+      alert("บันทึกไม่สำเร็จ: " + error.message);
+    }
+  }
+
+  if(file){
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const img = new Image();
+      img.onload = function(){
+        const canvas = document.createElement("canvas");
+        const maxWidth = 600;
+        const scale = maxWidth / img.width;
+        canvas.width = maxWidth;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        doSave(canvas.toDataURL("image/jpeg", 0.6));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  } else {
+    doSave("");
+  }
+}
+
+window.addEventListener("load", loadHome);
+
+</script>
+</body>
+</html>

@@ -1,12 +1,223 @@
 <!DOCTYPE html>
-<html lang="th">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="refresh" content="0; url=open-app.html">
-<title>พระแสงเดลิเวอรี่ — กำลังเปิดแอป</title>
-<script>window.location.href = "open-app.html";</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="apple-touch-icon" href="https://i.postimg.cc/F15t6zL4/phra-saeng-del-wexr-loko.png">
+<link rel="icon" href="https://i.postimg.cc/F15t6zL4/phra-saeng-del-wexr-loko.png">
+
+<title>พระแสงเดลิเวอรี่</title>
+
+<link rel="stylesheet" href="style.css">
+
 </head>
+
 <body>
-  <p>กำลังเปิดแอป... ถ้าไม่เด้งอัตโนมัติ <a href="open-app.html">กดที่นี่</a></p>
+
+<div class="bottom-nav">
+  <button class="nav-item active" data-tab="home" onclick="switchTab('home')"><span class="nav-ico">🏠</span><span>หน้าแรก</span></button>
+  <button class="nav-item" data-tab="order" onclick="switchTab('order')"><span class="nav-ico">🛍️</span><span>สั่งของ</span></button>
+  <button class="nav-item" data-tab="cart" onclick="switchTab('cart')"><span class="nav-ico">🧺</span><span>ตะกร้าที่สั่ง</span></button>
+  <button class="nav-item" data-tab="track" onclick="switchTab('track')"><span class="nav-ico"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="48" r="9" fill="none" stroke="#ff2f92" stroke-width="4"/><circle cx="48" cy="48" r="9" fill="none" stroke="#ff2f92" stroke-width="4"/><path d="M16 48 L26 30 L40 30 L48 48" fill="none" stroke="#ff2f92" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M26 30 L22 20 L14 20" fill="none" stroke="#ff2f92" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="40" cy="26" r="5" fill="#ff2f92"/><path d="M40 30 L48 48" fill="none" stroke="#ff2f92" stroke-width="4" stroke-linecap="round"/></svg></span><span>ติดตามออเดอร์</span></button>
+  <button class="nav-item" data-tab="contact" onclick="switchTab('contact')"><span class="nav-ico">☎️</span><span>ติดต่อ</span></button>
+</div>
+
+<div class="tab-page active" id="tabpage-home">
+
+<div class="hero-banner">
+  <img src="https://i.postimg.cc/3xxBK1NH/r-phn-aphec.png" class="banner-img">
+</div>
+
+<div class="ad-slider">
+  <div class="ad-track" id="adTrack"></div>
+</div>
+
+<div class="home-buttons">
+
+  <button class="btn-order"
+          onclick="switchTab('order'); showMemberGate();">
+    🛒 สั่งสินค้าแบบระบบสมาชิก
+  </button>
+
+  <button class="btn-order" style="background:linear-gradient(135deg,#888,#555);"
+        onclick="window.location.href='booking.html'">
+    📅 ระบบจองคิวร้านต่างๆ
+  </button>
+
+  <button class="btn-store"
+          onclick="switchTab('order'); showMerchantPage();">
+    🏪 สมัครร้านค้า
+  </button>
+
+  <button class="btn-rider"
+        onclick="window.location.href='rider.html'">
+  🛵 สมัครไรเดอร์
+</button>
+
+<button class="btn-store" style="background:linear-gradient(135deg,#0d9488,#0f766e);"
+        onclick="window.location.href='rental.html'">
+    🏠 หาบ้านเช่า / ซุ้มขายของ / แผงขายของ
+  </button>
+
+<button class="btn-store" style="background:linear-gradient(135deg,#c2410c,#9a3412);"
+        onclick="window.location.href='sale.html'">
+    🏡 ประกาศขายบ้านและที่ดิน
+  </button>
+
+<button class="btn-store" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);"
+        onclick="window.location.href='car.html'">
+    🚗 ขายรถมือสอง
+  </button>
+
+<button class="btn-store" style="background:linear-gradient(135deg,#14b8a6,#0f766e);"
+        onclick="window.location.href='jobs.html'">
+    💼 หางาน/รับสมัครงาน
+  </button>
+
+</div>
+<div id="memberBadge" style="text-align:center;margin:-6px 0 10px;font-size:13px;color:#666;"></div>
+
+<div style="margin:20px 24px 0;">
+  <h2 style="margin-bottom:10px;">🏪 ร้านค้าขายดี</h2>
+  <div id="homeShopGrid">กำลังโหลดร้านค้า...</div>
+</div>
+
+</div> <!-- ปิด tabpage-home -->
+
+<div class="tab-page" id="tabpage-order">
+<div id="productList">
+  กำลังโหลดสินค้า...
+</div>
+</div>
+
+<div class="tab-page" id="tabpage-cart">
+
+<div class="card">
+  <h2>🛒 ตะกร้า</h2>
+  <div id="cart">
+    ยังไม่มีสินค้า
+  </div>
+  <hr>
+  <h3 id="total">รวม 0 บาท</h3>
+</div>
+
+<div class="customer-card">
+  <h2>ข้อมูลลูกค้า</h2>
+  <div class="customer-grid">
+    <div class="input-group">
+      <label>ชื่อผู้สั่ง</label>
+      <input id="customerName" placeholder="กรอกชื่อของคุณ">
+    </div>
+    <div class="input-group">
+      <label>เบอร์โทร</label>
+      <input id="customerPhone" placeholder="เช่น 0932945790">
+    </div>
+  </div>
+
+  <div class="input-group" style="margin-top:14px;">
+    <label>ที่อยู่จัดส่ง</label>
+    <input id="customerAddress" placeholder="เช่น รพ.พระแสง ตึกผู้ป่วยนอก หรือ ร้านป้าแดง 99/1 ม.2 ต.พระแสง">
+  </div>
+
+  <div class="location-row">
+    <div id="locationStatus">ยังไม่ได้ปักหมุด</div>
+    <div class="action-stack">
+      <button onclick="getLocation()" class="pin-btn">📍 ปักหมุดตำแหน่ง</button>
+      <button onclick="confirmOrder()" class="confirm-btn">✅ ยืนยันออเดอร์</button>
+    </div>
+  </div>
+</div>
+
+</div> <!-- ปิด tabpage-cart -->
+
+<div class="tab-page" id="tabpage-track">
+
+<div id="trackEmptyState">
+  📦 ยังไม่มีออเดอร์ที่กำลังติดตามตอนนี้ครับ<br>
+  ไปที่แท็บ "สั่งของ" เพื่อเริ่มสั่งได้เลย
+</div>
+
+<div id="paymentBox" class="card" style="display:none; margin-top:0; text-align:center;">
+  <h2>ชำระเงิน</h2>
+  <h3 id="payAmount"></h3>
+  <img id="qrImage" style="width:260px; max-width:100%;">
+  <p>สแกน QR เพื่อโอนเงิน</p>
+  <input type="file" id="slipFile" accept="image/*">
+  <br><br>
+  <button onclick="uploadSlip()">📤 ส่งสลิป</button>
+</div>
+
+<div id="statusBox" class="card" style="display:none;">
+  <h2>ติดตามออเดอร์</h2>
+  <p id="orderIdText"></p>
+  <p id="statusText"></p>
+  <p id="riderText"></p>
+  <button onclick="checkOrderStatus()">🔄 เช็กสถานะ</button>
+  <br><br>
+  <button onclick="newOrder()">🆕 สั่งสินค้าใหม่</button>
+</div>
+
+</div> <!-- ปิด tabpage-track -->
+
+<div id="qtyModalOverlay" class="qty-modal-overlay">
+  <div class="qty-modal-box">
+    <button class="qty-modal-close" onclick="closeQtyModal()">✕</button>
+    <img id="qtyModalImg" class="qty-modal-img" src="">
+    <h3 id="qtyModalName" style="margin:14px 0 6px; font-size:24px;"></h3>
+    <p id="qtyModalPrice" style="color:#888;margin:0; font-size:18px;"></p>
+    <p id="qtyModalDesc" class="qty-modal-desc"></p>
+    <div class="qty-stepper">
+      <button class="qty-btn" onclick="changeQty(-1)">−</button>
+      <span id="qtyModalCount" class="qty-count">1</span>
+      <button class="qty-btn" onclick="changeQty(1)">+</button>
+    </div>
+    <button onclick="confirmAddToCart()" style="background:#2ecc71; font-size:20px; padding:16px; margin-top:8px;">ใส่ตะกร้า</button>
+  </div>
+</div>
+
+<div class="tab-page" id="tabpage-contact">
+<div style="background:linear-gradient(135deg,#ff2f92,#ff6bb5); border-radius:20px; margin:24px 24px 10px; padding:24px; text-align:center; color:#fff;">
+
+  <h2 style="margin:0 0 6px; font-size:20px;">🛵 พระแสงเดลิเวอรี่</h2>
+  <p style="margin:0 0 14px; font-size:14px; opacity:.9;">ส่งไว ใกล้บ้าน สั่งง่าย ได้ของชัวร์</p>
+
+  <p style="margin:6px 0; font-size:13px;">
+    📍 ร้านซุปเปอร์ทเวนตี้ 1/8 หมู่ 1 ตำบลอิปัน อำเภอพระแสง จังหวัดสุราษฎร์ธานี
+  </p>
+  <p style="margin:6px 0; font-size:13px;">
+    🕐 เปิดบริการ 06:00 - 20:00 น. ทุกวัน
+  </p>
+  <p style="margin:6px 0; font-size:13px;">
+    📞 093-2945790 ,086-2892295
+  </p>
+
+<div style="margin-top:20px;">
+    <a href="https://line.me/ti/p/~Prungyapharmacy" target="_blank"
+       style="display:inline-block; background:#06C755; color:#fff; text-decoration:none; padding:12px 26px; border-radius:12px; font-weight:bold; font-size:15px;">
+      💬 แอดไลน์ติดต่อแอดมิน หรือ คลิกที่ QR code
+    </a>
+
+    <div style="margin-top:14px;">
+      <a href="https://line.me/ti/p/~Prungyapharmacy" target="_blank">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=https://line.me/ti/p/~Prungyapharmacy"
+             style="border-radius:12px; background:#fff; padding:8px;">
+      </a>
+      <p style="font-size:16px; opacity:.9; margin-top:6px;">
+        กดปุ่มหรือกดที่ QR เพื่อแอดไลน์ ID line :Prungyapharmacy
+      </p>
+    </div>
+  </div>
+
+  <p style="margin:14px 0 0; font-size:11px; opacity:.7;">
+    © 2026 พระแสงเดลิเวอรี่ สงวนลิขสิทธิ์
+  </p>
+
+</div>
+</div> <!-- ปิด tabpage-contact -->
+
+<script src="api.js"></script>
+<script src="app.js"></script>
+
 </body>
 </html>
