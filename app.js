@@ -553,6 +553,9 @@ function showMerchantPage(){
 
       <input id="storeAddress"class="form-full" placeholder="ที่อยู่ร้านค้า" />
 
+      <label style="display:block;font-size:14px;font-weight:bold;margin-top:6px;">โลโก้ร้าน (ไม่บังคับ ใส่ทีหลังก็ได้)</label>
+      <input type="file" id="shopLogoFile" accept="image/*">
+
       <select id="shopCategory">
         <option value="">-- เลือกหมวดร้าน --</option>
         <option value="อาหาร">อาหาร</option>
@@ -856,6 +859,7 @@ async function submitShopRegister(){
   const phone = document.getElementById("shopPhone").value;
   const storeAddress = document.getElementById("storeAddress").value.trim();
   const category = document.getElementById("shopCategory").value;
+  const logoFile = document.getElementById("shopLogoFile") ? document.getElementById("shopLogoFile").files[0] : null;
 
   if(name === ""){ alert("กรุณากรอกชื่อร้าน"); return; }
   if(phone === ""){ alert("กรุณากรอกเบอร์ร้าน"); return; }
@@ -863,20 +867,45 @@ async function submitShopRegister(){
   if(category === ""){ alert("กรุณากรอกหมวดร้าน"); return; }
   if(registerShopLat === "" || registerShopLng === ""){ alert("กรุณาปักหมุดร้านก่อน"); return; }
 
-  try {
-    const result = await apiPost('registerStore', { data: {
-      name: name, phone: phone, category: category, storeAddress: storeAddress,
-      lat: registerShopLat, lng: registerShopLng
-    }});
-    alert(
-      "ส่งใบสมัครร้านค้าแล้ว ✅\n\n" +
-      "รหัสร้าน: " + result.storeId + "\n" +
-      "PIN: " + result.pin + "\n\n" +
-      "กรุณาเก็บไว้ใช้เพิ่มสินค้า\nและรอแอดมินอนุมัติ"
-    );
-    showCustomerHome();
-  } catch(error){
-    alert("สมัครร้านไม่สำเร็จ: " + error.message);
+  // 🆕 ฟังก์ชันย่อยสำหรับยิงข้อมูลไปหลังบ้าน (แยกไว้เผื่อต้องรอบีบอัดโลโก้ก่อน)
+  async function doRegister(logoBase64){
+    try {
+      const result = await apiPost('registerStore', { data: {
+        name: name, phone: phone, category: category, storeAddress: storeAddress,
+        lat: registerShopLat, lng: registerShopLng,
+        logo: logoBase64 || ""   // 🆕 ส่งโลโก้ (ถ้ามี) ไปพร้อมกันเลย
+      }});
+      alert(
+        "ส่งใบสมัครร้านค้าแล้ว ✅\n\n" +
+        "รหัสร้าน: " + result.storeId + "\n" +
+        "PIN: " + result.pin + "\n\n" +
+        "กรุณาเก็บไว้ใช้เพิ่มสินค้า\nและรอแอดมินอนุมัติ"
+      );
+      showCustomerHome();
+    } catch(error){
+      alert("สมัครร้านไม่สำเร็จ: " + error.message);
+    }
+  }
+
+  // 🆕 ถ้าเลือกไฟล์โลโก้มา ให้บีบอัดก่อนแล้วค่อยส่ง ไม่งั้นส่งแบบไม่มีโลโก้ไปเลย
+  if(logoFile){
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const img = new Image();
+      img.onload = function(){
+        const canvas = document.createElement("canvas");
+        const maxWidth = 400;
+        const scale = maxWidth / img.width;
+        canvas.width = maxWidth;
+        canvas.height = img.height * scale;
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        doRegister(canvas.toDataURL("image/jpeg", 0.7).split(",")[1]);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(logoFile);
+  } else {
+    doRegister("");
   }
 }
 

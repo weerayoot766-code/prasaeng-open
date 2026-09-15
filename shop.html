@@ -146,13 +146,27 @@ function renderDashboard(result){
 
   let html = '';
 
-  html += '<div class="store-header">';
-  html += '<div class="info"><b>' + escapeHtml(currentStoreName) + '</b><span>รหัสร้าน: ' + escapeHtml(currentStoreId) + '</span></div>';
-  html += '<button class="logout-btn" onclick="logout()">ออกจากระบบ</button>';
+  // 🆕 header ใส่โลโก้ร้าน (ถ้ามี) ไว้ข้างชื่อร้าน
+  html += '<div class="store-header" style="justify-content:flex-start;gap:14px;">';
+  if(result.logo){
+    html += '<img src="' + escapeHtml(result.logo) + '" style="width:56px;height:56px;border-radius:14px;object-fit:cover;background:#fff;flex-shrink:0;">';
+  }
+  html += '<div class="info" style="flex:1;"><b>' + escapeHtml(currentStoreName) + '</b><span>รหัสร้าน: ' + escapeHtml(currentStoreId) + '</span></div>';
+  html += '<button class="logout-btn" style="flex-shrink:0;" onclick="logout()">ออกจากระบบ</button>';
   html += '</div>';
 
   html += '<div class="' + (result.isOpen ? "store-toggle-card is-open" : "store-toggle-card is-closed") + '" onclick="toggleStoreOpen(' + result.isOpen + ')">';
   html += result.isOpen ? '🟢 ร้านเปิดอยู่ — กดเพื่อปิดร้าน' : '🔴 ร้านปิดอยู่ — กดเพื่อเปิดร้าน';
+  html += '</div>';
+
+  // 🆕 การ์ดจัดการโลโก้ร้าน
+  html += '<div class="card"><h2>🖼️ โลโก้ร้าน</h2>';
+  html += '<p style="color:#666;font-size:14px;">โลโก้นี้จะแสดงในหน้ารายชื่อร้านค้าให้ลูกค้าเห็น</p>';
+  if(result.logo){
+    html += '<img src="' + escapeHtml(result.logo) + '" style="width:100px;height:100px;object-fit:cover;border-radius:14px;margin-bottom:10px;background:#f5f5f5;">';
+  }
+  html += '<input type="file" id="logoFile" accept="image/*">';
+  html += '<button onclick="submitLogo()" style="background:#2ecc71;">💾 บันทึกโลโก้ร้าน</button>';
   html += '</div>';
 
   html += '<div class="card"><h2>➕ เพิ่มเมนู/สินค้าใหม่</h2>';
@@ -187,6 +201,37 @@ async function toggleStoreOpen(currentlyOpen){
   } catch(error){
     alert("เปลี่ยนสถานะไม่สำเร็จ: " + error.message);
   }
+}
+
+/** 🆕 บันทึก/เปลี่ยนโลโก้ร้าน — บีบอัดรูปก่อนส่งเหมือนรูปสินค้า แล้วยิงไป updateStoreLogo */
+function submitLogo(){
+  const file = document.getElementById("logoFile").files[0];
+  if(!file){ alert("กรุณาเลือกรูปโลโก้ก่อน"); return; }
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = async function(){
+      const canvas = document.createElement("canvas");
+      const maxWidth = 400;
+      const scale = maxWidth / img.width;
+      canvas.width = maxWidth;
+      canvas.height = img.height * scale;
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      const base64 = canvas.toDataURL("image/jpeg", 0.7).split(",")[1];
+
+      try {
+        const res = await apiPost('updateStoreLogo', { storeId: currentStoreId, pin: currentPin, logoBase64: base64 });
+        if(!res.success){ alert(res.message || "บันทึกโลโก้ไม่สำเร็จ"); return; }
+        alert("บันทึกโลโก้ร้านแล้ว ✅");
+        loadDashboard();
+      } catch(error){
+        alert("บันทึกโลโก้ไม่สำเร็จ: " + error.message);
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 function submitNewProduct(){
