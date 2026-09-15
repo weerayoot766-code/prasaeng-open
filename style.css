@@ -518,10 +518,14 @@ body{
   font-size:16px;
 }
 
-/* 🆕 มือถือจอแคบ — ลดระยะขอบรอบการ์ด/body ให้เนื้อหาขยายใช้พื้นที่จอได้เต็มขึ้น */
+/* 🆕 มือถือจอแคบ — ลดระยะขอบรอบการ์ด/body ให้เนื้อหาขยายใช้พื้นที่จอได้เต็มขึ้น
+   (ระวัง: ใช้ padding-left/right/top แยก ไม่ใช้ "padding" รวม เพราะจะไปทับ
+   padding-bottom:160px ของ body ด้านบนที่กันเมนูล่างบังเนื้อหา) */
 @media(max-width:600px){
   body{
-    padding:10px;
+    padding-left:10px;
+    padding-right:10px;
+    padding-top:10px;
   }
   .card{
     margin:10px 0;
@@ -531,4 +535,23 @@ body{
     margin:10px 0;
     padding:18px;
   }
+  .card h2{
+    font-size:26px;
+    color:#e6127a;
+    font-weight:800;
+  }
+}
+
+/* 🆕 ข้อความรายละเอียดสินค้า — เล็กลง มีสีสัน มีลูกเล่นนิดหน่อย */
+.product-desc{
+  font-size:12.5px;
+  color:#ff6b35;
+  font-style:italic;
+  line-height:1.45;
+  background:#fff4ec;
+  border-left:3px solid #ff9f43;
+  padding:5px 8px;
+  border-radius:6px;
+  margin:6px 0;
+  display:block;
 }

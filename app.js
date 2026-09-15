@@ -293,7 +293,7 @@ function showProductsByShop(shopName, isRestore){
       html += '<img class="product-img" src="' + escapeHtml(image) + '">';
     }
     html += '<h3>' + escapeHtml(name) + '</h3>';
-    html += '<p>' + escapeHtml(description) + '</p>';
+    html += '<p class="product-desc">🍴 ' + escapeHtml(description) + '</p>';
     html += '<p><b>' + price + ' บาท</b></p>';
     html += '<button type="button" class="add-btn" data-index="' + index + '" onclick="event.stopPropagation(); openQtyModal(' + index + ')">';
     html += 'เพิ่มสินค้าลงตะกร้า';
