@@ -101,26 +101,26 @@ input,select{
   font-size:20px;
   font-weight:800;
 }
+
+/* 🆕 กล่องเมนูหน้าแรก — บังคับ 3 คอลัมน์ทุกขนาดหน้าจอ (รวมมือถือ) */
 .home-buttons{
-  display:flex;
-  gap:20px;
-  justify-content:center;
-  padding:20px;
-  flex-wrap:wrap;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+  padding:16px;
 }
 
 .home-buttons button{
-  flex:1;
-  min-width:250px;
-  padding:22px;
   border:none;
-  border-radius:20px;
+  border-radius:16px;
   color:#fff;
-  font-size:22px;
+  font-size:12.5px;
   font-weight:bold;
   cursor:pointer;
-
-  box-shadow:0 6px 16px rgba(0,0,0,.15);
+  line-height:1.35;
+  padding:12px 6px;
+  min-height:76px;
+  box-shadow:0 4px 12px rgba(0,0,0,.15);
 }
 
 .btn-order{
@@ -271,10 +271,12 @@ input,select{
   margin-right:10px;
   border-radius:15px;
 }
+
+/* 🆕 กริดรายชื่อร้านค้า — 4 คอลัมน์เหมือนเดิม แต่รูปยืดตามช่อง (ไม่ล้นจอมือถือ) */
 .shop-grid{
   display:grid;
   grid-template-columns:repeat(4,1fr);
-  gap:16px 8px;
+  gap:10px 6px;
   padding:10px 0;
 }
 .shop-tile{
@@ -283,30 +285,33 @@ input,select{
   align-items:center;
   text-align:center;
   cursor:pointer;
+  min-width:0;
 }
 .shop-tile-img{
-  width:120px;
-  height:120px;
-  border-radius:20px;
+  width:100%;
+  aspect-ratio:1/1;
+  border-radius:16px;
   object-fit:cover;
   background:#fff5fb;
   margin-bottom:6px;
 }
 .shop-tile-icon{
-  width:120px;
-  height:120px;
-  border-radius:20px;
+  width:100%;
+  aspect-ratio:1/1;
+  border-radius:16px;
   background:#ffe3f0;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:28px;
+  font-size:22px;
   margin-bottom:6px;
 }
 .shop-tile-name{
-  font-size:16px;
+  font-size:11px;
   font-weight:700;
   color:#333;
+  overflow-wrap:break-word;
+  width:100%;
 }
 .qty-modal-overlay{
   display:none;
@@ -446,11 +451,12 @@ input,select{
 .shop-scroll-row .shop-tile-icon{
   width:90px;
   height:90px;
+  aspect-ratio:unset;
 }
 
-/* ---------- แท็บด้านล่าง (เพิ่มใหม่) ---------- */
+/* ---------- แท็บด้านล่าง ---------- */
 body{
-  padding-bottom: 160px; /* กันเนื้อหาโดนแถบเมนูด้านล่างบัง (ตัวอักษรใหญ่ขึ้นอีก) */
+  padding-bottom: 160px; /* กันเนื้อหาโดนแถบเมนูด้านล่างบัง */
 }
 .tab-page{
   display:none;
@@ -469,29 +475,36 @@ body{
   box-shadow:0 -8px 20px rgba(0,0,0,.08);
   z-index:500;
 }
+
+/* 🆕 เมนูล่าง — เล็กลง กันคำยาว (เช่น "ติดตามออเดอร์") ล้นจอ */
 .nav-item{
   flex:1;
+  min-width:0;
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  gap:5px;
-  padding:10px 2px;
-  margin:0 2px;
+  gap:3px;
+  padding:8px 2px;
+  margin:0 1px;
   color:#ff2f92;
-  font-size:17px;
+  font-size:10px;
   font-weight:900;
-  line-height:1.2;
+  line-height:1.15;
   cursor:pointer;
   background:none;
   border:none;
-  border-radius:16px;
+  border-radius:14px;
   font-family:Arial;
-  min-height:90px;
+  min-height:70px;
+  overflow-wrap:break-word;
+  word-break:break-word;
 }
-.nav-item .nav-ico{ font-size:44px; line-height:1; }
-.nav-item .nav-ico svg{ width:44px; height:44px; display:block; margin:0 auto; }
+.nav-item span:last-child{ width:100%; }
+.nav-item .nav-ico{ font-size:26px; line-height:1; }
+.nav-item .nav-ico svg{ width:26px; height:26px; display:block; margin:0 auto; }
 .nav-item.active{ color:#ff2f92; font-weight:900; background:#ffe3f0; box-shadow:inset 0 0 0 2px #ff9fc9; }
+
 #trackEmptyState{
   text-align:center;
   color:#888;
