@@ -517,3 +517,18 @@ body{
   padding:40px 20px;
   font-size:16px;
 }
+
+/* 🆕 มือถือจอแคบ — ลดระยะขอบรอบการ์ด/body ให้เนื้อหาขยายใช้พื้นที่จอได้เต็มขึ้น */
+@media(max-width:600px){
+  body{
+    padding:10px;
+  }
+  .card{
+    margin:10px 0;
+    padding:14px;
+  }
+  .customer-card{
+    margin:10px 0;
+    padding:18px;
+  }
+}
