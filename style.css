@@ -535,11 +535,13 @@ body{
     margin:10px 0;
     padding:18px;
   }
-  .card h2{
-    font-size:26px;
-    color:#e6127a;
-    font-weight:800;
-  }
+}
+
+/* 🆕 ชื่อร้าน (เช่น "KFC") — ใหญ่ขึ้น สีชมพูเข้ม ใช้ได้ทุกขนาดหน้าจอ */
+.card h2{
+  font-size:26px;
+  color:#e6127a;
+  font-weight:800;
 }
 
 /* 🆕 ข้อความรายละเอียดสินค้า — เล็กลง มีสีสัน มีลูกเล่นนิดหน่อย */
