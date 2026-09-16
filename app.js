@@ -435,6 +435,7 @@ async function confirmOrder(){
     localStorage.removeItem("pd_currentShop");
     localStorage.removeItem("pd_cart");
     currentOrderId = result.orderId;
+    localStorage.setItem("pd_currentOrderId", currentOrderId); // 🆕 กันรีเฟรชแล้วหลุดการติดตาม
     showPaymentQR(totalAmount);
     document.getElementById("statusBox").style.display = "block";
     document.getElementById("trackEmptyState").style.display = "none";
@@ -585,6 +586,7 @@ function newOrder(){
   deliveryFee = 0;
   distanceKm = 0;
   currentOrderId = "";
+  localStorage.removeItem("pd_currentOrderId"); // 🆕 ล้างค่าเก่าออกตอนเริ่มออเดอร์ใหม่
 
   document.getElementById("cart").innerHTML = '<div class="cart-empty">ยังไม่มีสินค้าในตะกร้า</div>';
   document.getElementById("sumProduct").innerText = "0 บาท";
@@ -1015,7 +1017,20 @@ window.addEventListener("load", function(){
   loadProducts();
   renderMemberBadge();
   loadAdSlider();
+  restoreTrackedOrder(); // 🆕 กันรีเฟรชแล้วหลุดการติดตามออเดอร์ที่สั่งไปแล้ว
 });
+
+/** 🆕 ถ้ามีหมายเลขออเดอร์ค้างจาก localStorage (เช่น เผลอรีเฟรชหน้าเว็บ) ให้กลับไปติดตามต่อทันที */
+function restoreTrackedOrder(){
+  const savedOrderId = localStorage.getItem("pd_currentOrderId");
+  if(!savedOrderId) return;
+
+  currentOrderId = savedOrderId;
+  document.getElementById("orderIdText").innerHTML = "หมายเลขออเดอร์: " + currentOrderId;
+  document.getElementById("statusBox").style.display = "block";
+  document.getElementById("trackEmptyState").style.display = "none";
+  checkOrderStatus();
+}
 
 function renderMemberBadge(){
   const name = localStorage.getItem("pd_memberName");
