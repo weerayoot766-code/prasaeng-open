@@ -185,11 +185,14 @@ function startShareLocation(){
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
 
-      google_updateLocation(phone, lat, lng);
-
-      const now = new Date();
-      document.getElementById("shareLocationStatus").innerHTML =
-        "🟢 กำลังแชร์ตำแหน่ง — อัปเดตล่าสุด " + now.toLocaleTimeString("th-TH");
+      google_updateLocation(phone, lat, lng).then(function(ok){
+        if(ok){
+          const now = new Date();
+          document.getElementById("shareLocationStatus").innerHTML =
+            "🟢 กำลังแชร์ตำแหน่ง — อัปเดตล่าสุด " + now.toLocaleTimeString("th-TH");
+        }
+        // ถ้า ok เป็น false ฟังก์ชัน google_updateLocation จะจัดการหยุด+แจ้งเตือนให้เองแล้ว
+      });
     },
     function(error){
       document.getElementById("shareLocationStatus").innerHTML =
@@ -215,9 +218,19 @@ function stopShareLocation(){
 
 async function google_updateLocation(phone, lat, lng){
   try {
-    await apiPost('updateRiderLocation', { phone: phone, lat: lat, lng: lng });
+    const result = await apiPost('updateRiderLocation', { phone: phone, lat: lat, lng: lng });
+
+    if(!result.success){
+      // 🆕 หาเบอร์นี้ไม่เจอในระบบ — หยุดแชร์ตำแหน่งแล้วแจ้งเตือนจริง แทนที่จะโชว์ว่าสำเร็จหลอกๆ
+      stopShareLocation();
+      alert("ไม่พบเบอร์นี้ในระบบไรเดอร์: " + (result.message || "") + "\n\nกรุณาตรวจสอบว่ากรอกเบอร์ตรงกับตอนสมัครไรเดอร์เป๊ะๆ (รวมเลข 0 นำหน้าด้วย)");
+      return false;
+    }
+
+    return true;
   } catch(error){
     console.error("ส่งพิกัดไม่สำเร็จ:", error.message);
+    return false;
   }
 }
 
