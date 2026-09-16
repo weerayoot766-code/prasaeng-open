@@ -180,30 +180,50 @@ function startShareLocation(){
     return;
   }
 
-  shareWatchId = navigator.geolocation.watchPosition(
-    function(position){
-      const lat = position.coords.latitude;
-      const lng = position.coords.longitude;
-
-      google_updateLocation(phone, lat, lng).then(function(ok){
-        if(ok){
-          const now = new Date();
-          document.getElementById("shareLocationStatus").innerHTML =
-            "🟢 กำลังแชร์ตำแหน่ง — อัปเดตล่าสุด " + now.toLocaleTimeString("th-TH");
-        }
-        // ถ้า ok เป็น false ฟังก์ชัน google_updateLocation จะจัดการหยุด+แจ้งเตือนให้เองแล้ว
-      });
-    },
-    function(error){
-      document.getElementById("shareLocationStatus").innerHTML =
-        "❌ ดึงตำแหน่งไม่ได้ กรุณาเปิดสิทธิ์ GPS: " + error.message;
-    },
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
-  );
-
   document.getElementById("shareLocationBtn").innerHTML = "⏹️ หยุดแชร์ตำแหน่ง";
   document.getElementById("shareLocationBtn").style.background = "#e74c3c";
   document.getElementById("shareLocationStatus").innerHTML = "🟡 กำลังขอสิทธิ์ตำแหน่ง...";
+
+  // 🆕 ขอตำแหน่งครั้งแรกด้วย getCurrentPosition ก่อน (เชื่อถือได้กว่า watchPosition บน iOS Safari
+  // ซึ่งบางทีค้างไม่ยอมเรียก callback เลยแม้ตั้ง timeout ไว้แล้ว) พอสำเร็จรอบแรกแล้วค่อยเริ่มติดตามต่อเนื่อง
+  navigator.geolocation.getCurrentPosition(
+    function(position){
+      handleLocationUpdate(phone, position);
+      startWatchingPosition(phone);
+    },
+    function(error){
+      document.getElementById("shareLocationStatus").innerHTML =
+        "❌ ดึงตำแหน่งไม่ได้: " + error.message + " (ลองเช็คว่าเปิดสิทธิ์ตำแหน่งให้เว็บเบราว์เซอร์ในตั้งค่าเครื่องหรือยัง)";
+      document.getElementById("shareLocationBtn").innerHTML = "📍 เริ่มแชร์ตำแหน่ง";
+      document.getElementById("shareLocationBtn").style.background = "#2ecc71";
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+}
+
+function startWatchingPosition(phone){
+  shareWatchId = navigator.geolocation.watchPosition(
+    function(position){ handleLocationUpdate(phone, position); },
+    function(error){
+      document.getElementById("shareLocationStatus").innerHTML =
+        "⚠️ ตำแหน่งขาดหาย: " + error.message + " (ยังคงลองต่อไปอัตโนมัติ)";
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  );
+}
+
+function handleLocationUpdate(phone, position){
+  const lat = position.coords.latitude;
+  const lng = position.coords.longitude;
+
+  google_updateLocation(phone, lat, lng).then(function(ok){
+    if(ok){
+      const now = new Date();
+      document.getElementById("shareLocationStatus").innerHTML =
+        "🟢 กำลังแชร์ตำแหน่ง — อัปเดตล่าสุด " + now.toLocaleTimeString("th-TH");
+    }
+    // ถ้า ok เป็น false ฟังก์ชัน google_updateLocation จะจัดการหยุด+แจ้งเตือนให้เองแล้ว
+  });
 }
 
 function stopShareLocation(){
