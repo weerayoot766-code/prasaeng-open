@@ -464,7 +464,12 @@ async function checkOrderStatus(){
     if(data.status == "ส่งสำเร็จ"){
       document.getElementById("paymentBox").style.display = "none";
       document.getElementById("riderMapBox").style.display = "none";
-      document.getElementById("riderText").innerHTML = "✅ ส่งสำเร็จแล้ว ขอบคุณที่ใช้บริการครับ";
+      let doneHtml = "✅ ส่งสำเร็จแล้ว ขอบคุณที่ใช้บริการครับ";
+      if(data.proofImageUrl){
+        doneHtml += '<br><br><b>📸 รูปยืนยันการส่งของ:</b><br>' +
+          '<img src="' + escapeHtml(data.proofImageUrl) + '" style="width:100%;border-radius:12px;margin-top:6px;">';
+      }
+      document.getElementById("riderText").innerHTML = doneHtml;
       return;
     }
 
