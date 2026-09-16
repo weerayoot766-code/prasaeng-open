@@ -491,10 +491,8 @@ async function checkOrderStatus(){
 
 /** 🆕 ดึงพิกัดไรเดอร์ล่าสุดจาก getRiderLocation แล้ววาด/อัปเดตหมุดบนแผนที่ */
 async function updateRiderMapView(riderPhone){
-  alert("🔍 DEBUG: เรียก updateRiderMapView แล้ว riderPhone = [" + riderPhone + "]"); // 🆕 ลบบรรทัดนี้ทีหลังเมื่อเจอปัญหาแล้ว
   try {
     const loc = await apiGet('getRiderLocation', { phone: riderPhone });
-    alert("🔍 DEBUG: ผลลัพธ์ getRiderLocation = " + JSON.stringify(loc)); // 🆕 ลบบรรทัดนี้ทีหลังเมื่อเจอปัญหาแล้ว
     if(!loc.success){
       // 🆕 ยังไม่มีพิกัดไรเดอร์ — ถ้ายังไม่เคยสร้างแผนที่มาก่อนเลย โชว์เหตุผลไว้ให้เห็นชัดๆ (ช่วย debug)
       // แต่ถ้าเคยมีแผนที่แสดงอยู่แล้ว (จากรอบก่อนหน้า) ให้คงไว้ตามเดิม ไม่ลบทิ้ง

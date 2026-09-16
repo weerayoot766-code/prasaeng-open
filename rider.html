@@ -188,12 +188,10 @@ function startShareLocation(){
   // ซึ่งบางทีค้างไม่ยอมเรียก callback เลยแม้ตั้ง timeout ไว้แล้ว) พอสำเร็จรอบแรกแล้วค่อยเริ่มติดตามต่อเนื่อง
   navigator.geolocation.getCurrentPosition(
     function(position){
-      alert("🔍 DEBUG: ได้ตำแหน่งแล้ว lat=" + position.coords.latitude + " lng=" + position.coords.longitude); // 🆕 ลบทีหลัง
       handleLocationUpdate(phone, position);
       startWatchingPosition(phone);
     },
     function(error){
-      alert("🔍 DEBUG: ขอตำแหน่งไม่สำเร็จ code=" + error.code + " message=" + error.message); // 🆕 ลบทีหลัง
       document.getElementById("shareLocationStatus").innerHTML =
         "❌ ดึงตำแหน่งไม่ได้: " + error.message + " (ลองเช็คว่าเปิดสิทธิ์ตำแหน่งให้เว็บเบราว์เซอร์ในตั้งค่าเครื่องหรือยัง)";
       document.getElementById("shareLocationBtn").innerHTML = "📍 เริ่มแชร์ตำแหน่ง";
