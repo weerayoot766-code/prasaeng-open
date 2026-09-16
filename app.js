@@ -313,20 +313,24 @@ window.renderCart = function(){
     const qty = item.qty || 1;
     const lineTotal = Number(item.price) * qty;
     html += `
-      <p>
-        ${index+1}. ${escapeHtml(item.name)}
-        x${qty} - ${lineTotal} บาท
-        <button style="width:auto;margin-left:10px;padding:5px 10px;background:red;" onclick='window.removeItem(${index})'>ลบ</button>
-      </p>
+      <div class="cart-item">
+        <div class="cart-item-index">${index+1}</div>
+        <div class="cart-item-info">
+          <div class="cart-item-name">${escapeHtml(item.name)}</div>
+          <div class="cart-item-meta">x${qty} · ${lineTotal.toLocaleString()} บาท</div>
+        </div>
+        <button class="cart-remove-btn" onclick="window.removeItem(${index})" title="ลบรายการนี้">🗑️</button>
+      </div>
     `;
     total += lineTotal;
   });
 
-  document.getElementById("cart").innerHTML = html || "ยังไม่มีสินค้า";
-  document.getElementById("total").innerHTML =
-    "ค่าสินค้า " + total + " บาท<br>" +
-    "ค่าส่ง " + deliveryFee + " บาท<br>" +
-    "รวม " + (total + deliveryFee) + " บาท";
+  document.getElementById("cart").innerHTML =
+    html || '<div class="cart-empty">ยังไม่มีสินค้าในตะกร้า</div>';
+
+  document.getElementById("sumProduct").innerText = total.toLocaleString() + " บาท";
+  document.getElementById("sumDelivery").innerText = deliveryFee.toLocaleString() + " บาท";
+  document.getElementById("sumTotal").innerText = (total + deliveryFee).toLocaleString() + " บาท";
 
   localStorage.setItem("pd_cart", JSON.stringify(cart));
 };
@@ -514,8 +518,10 @@ function newOrder(){
   distanceKm = 0;
   currentOrderId = "";
 
-  document.getElementById("cart").innerHTML = "ยังไม่มีสินค้า";
-  document.getElementById("total").innerHTML = "รวม 0 บาท";
+  document.getElementById("cart").innerHTML = '<div class="cart-empty">ยังไม่มีสินค้าในตะกร้า</div>';
+  document.getElementById("sumProduct").innerText = "0 บาท";
+  document.getElementById("sumDelivery").innerText = "0 บาท";
+  document.getElementById("sumTotal").innerText = "0 บาท";
   document.getElementById("customerName").value = "";
   document.getElementById("customerPhone").value = "";
   document.getElementById("customerAddress").value = "";

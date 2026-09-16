@@ -98,40 +98,55 @@
 
 <div class="tab-page" id="tabpage-cart">
 
-<div class="card">
-  <h2>🛒 ตะกร้า</h2>
-  <div id="cart">
-    ยังไม่มีสินค้า
+<div class="cart-card">
+  <div class="cart-card-header">
+    <span class="cart-icon">🧺</span>
+    <h2>ตะกร้าของคุณ</h2>
   </div>
-  <hr>
-  <h3 id="total">รวม 0 บาท</h3>
+
+  <div id="cart" class="cart-items">
+    <div class="cart-empty">ยังไม่มีสินค้าในตะกร้า</div>
+  </div>
+
+  <div class="cart-summary">
+    <div class="cart-summary-row"><span>ค่าสินค้า</span><span id="sumProduct">0 บาท</span></div>
+    <div class="cart-summary-row"><span>ค่าจัดส่ง</span><span id="sumDelivery">0 บาท</span></div>
+    <div class="cart-summary-total"><span>ยอดรวมทั้งหมด</span><span id="sumTotal">0 บาท</span></div>
+  </div>
 </div>
 
 <div class="customer-card">
-  <h2>ข้อมูลลูกค้า</h2>
+
+  <h2>📋 ข้อมูลลูกค้า</h2>
+
   <div class="customer-grid">
+
     <div class="input-group">
-      <label>ชื่อผู้สั่ง</label>
+      <label>👤 ชื่อผู้สั่ง</label>
       <input id="customerName" placeholder="กรอกชื่อของคุณ">
     </div>
+
     <div class="input-group">
-      <label>เบอร์โทร</label>
+      <label>📱 เบอร์โทร</label>
       <input id="customerPhone" placeholder="เช่น 0932945790">
     </div>
+
   </div>
 
   <div class="input-group" style="margin-top:14px;">
-    <label>ที่อยู่จัดส่ง</label>
+    <label>📍 ที่อยู่จัดส่ง</label>
     <input id="customerAddress" placeholder="เช่น รพ.พระแสง ตึกผู้ป่วยนอก หรือ ร้านป้าแดง 99/1 ม.2 ต.พระแสง">
   </div>
 
   <div class="location-row">
-    <div id="locationStatus">ยังไม่ได้ปักหมุด</div>
-    <div class="action-stack">
-      <button onclick="getLocation()" class="pin-btn">📍 ปักหมุดตำแหน่ง</button>
-      <button onclick="confirmOrder()" class="confirm-btn">✅ ยืนยันออเดอร์</button>
-    </div>
+  <div id="locationStatus">ยังไม่ได้ปักหมุด</div>
+
+  <div class="action-stack">
+    <button onclick="getLocation()" class="pin-btn">📍 ปักหมุดตำแหน่ง</button>
+    <button onclick="confirmOrder()" class="confirm-btn">✅ ยืนยันออเดอร์</button>
   </div>
+</div>
+
 </div>
 
 </div> <!-- ปิด tabpage-cart -->

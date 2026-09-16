@@ -144,14 +144,119 @@ input,select{
 .customer-card{
   background:#fff;
   margin:20px 24px;
-  padding:28px;
-  border-radius:24px;
-  box-shadow:0 8px 24px rgba(255,0,120,.10);
+  padding:26px;
+  border-radius:22px;
+  box-shadow:0 10px 26px rgba(255,0,120,.08);
+  border:1px solid #ffe3f0;
 }
 
 .customer-card h2{
   margin:0 0 22px;
-  font-size:28px;
+  font-size:19px;
+  color:#e6127a;
+  font-weight:800;
+  letter-spacing:.01em;
+}
+
+/* 🆕 การ์ดตะกร้า — สไตล์ใบเสร็จพรีเมียม โทนครีม-ทอง */
+.cart-card{
+  background:linear-gradient(180deg,#fffaf3,#ffffff);
+  border:1px solid #f0dfc0;
+  border-radius:22px;
+  padding:22px;
+  margin:16px 24px;
+  box-shadow:0 10px 28px rgba(180,140,60,.12);
+}
+.cart-card-header{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding-bottom:14px;
+  margin-bottom:6px;
+  border-bottom:1px solid #f0dfc0;
+}
+.cart-card-header .cart-icon{ font-size:24px; }
+.cart-card-header h2{
+  margin:0;
+  font-size:19px;
+  color:#7a4a00;
+  letter-spacing:.02em;
+  font-weight:800;
+}
+.cart-items{ display:flex; flex-direction:column; }
+.cart-item{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:13px 0;
+  border-bottom:1px dashed #f1e3cf;
+}
+.cart-item:last-child{ border-bottom:none; }
+.cart-item-index{
+  width:24px; height:24px;
+  border-radius:50%;
+  background:#fff1de;
+  color:#b8790a;
+  font-size:12px;
+  font-weight:800;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.cart-item-info{ flex:1; min-width:0; }
+.cart-item-name{
+  font-size:14.5px;
+  font-weight:700;
+  color:#3a2b12;
+  overflow-wrap:break-word;
+}
+.cart-item-meta{
+  font-size:12.5px;
+  color:#a4864f;
+  margin-top:3px;
+}
+.cart-remove-btn{
+  width:34px; height:34px;
+  border-radius:10px;
+  background:#fdeeee;
+  color:#d63333;
+  border:none;
+  font-size:15px;
+  cursor:pointer;
+  flex-shrink:0;
+  padding:0;
+}
+.cart-empty{
+  text-align:center;
+  color:#b8a276;
+  padding:34px 10px;
+  font-size:14px;
+}
+.cart-summary{
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px solid #f0dfc0;
+}
+.cart-summary-row{
+  display:flex;
+  justify-content:space-between;
+  font-size:13.5px;
+  color:#7a6b4a;
+  padding:4px 0;
+}
+.cart-summary-total{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:10px;
+  padding-top:12px;
+  border-top:1px dashed #d9c592;
+  font-size:16px;
+  font-weight:900;
+  color:#7a4a00;
+}
+.cart-summary-total span:last-child{
+  color:#ff2f92;
+  font-size:21px;
 }
 
 .customer-grid{
@@ -164,14 +269,25 @@ input,select{
   display:block;
   font-weight:700;
   margin-bottom:8px;
+  color:#7a5a6a;
+  font-size:14px;
 }
 
 .input-group input{
   width:100%;
-  padding:18px;
-  border:1px solid #ddd;
-  border-radius:16px;
-  font-size:20px;
+  padding:14px 16px;
+  border:1.5px solid #ffe3f0;
+  border-radius:14px;
+  font-size:16px;
+  box-sizing:border-box;
+  transition:border-color .15s, box-shadow .15s;
+  background:#fffafc;
+}
+.input-group input:focus{
+  outline:none;
+  border-color:#ff2f92;
+  box-shadow:0 0 0 3px rgba(255,47,146,.12);
+  background:#fff;
 }
 
 .location-row{
@@ -199,6 +315,11 @@ input,select{
 .confirm-btn{
   width:100%;
   margin-top:18px;
+  background:linear-gradient(135deg,#ff4fa3,#c2185b);
+  box-shadow:0 8px 22px rgba(255,47,146,.35);
+  font-size:17px;
+  font-weight:800;
+  letter-spacing:.02em;
 }
 @media(max-width:700px){
   .customer-grid{
