@@ -5,11 +5,11 @@
  *  แนวทางเดียวกับที่ใช้ได้จริงแล้วในโปรเจกต์ PPMS (ปรุงยาเภสัช)
  * ============================================================
  *
- *  ⚠️ แก้ API_URL ด้านล่างให้เป็น Web App URL ของ Apps Script ที่ deploy ไว้
- *  (Deploy > New deployment > Web app > Execute as: Me, Who has access: Anyone)
+ *  ✅ ใส่ Web App URL ของ Apps Script ให้แล้ว (deploy ไว้ที่โปรเจกต์ "พระแสงเดลิเวอรี่ V.3")
+ *  ถ้าสร้างโปรเจกต์ Apps Script ใหม่ในอนาคต ต้องมาแก้บรรทัด API_URL ด้านล่างเป็นของใหม่เอง
  */
 
-const API_URL = 'วาง_WEB_APP_URL_ของคุณตรงนี้'; // เช่น https://script.google.com/macros/s/AKfycbx.../exec
+const API_URL = 'https://script.google.com/macros/s/AKfycbyrqSO6l5CNmj_BuyKv7XCCOI4eNHoxNvcxzcSdA7FP3eu1pJ7QuHpWwEhW0kcIH6o0/exec';
 
 /**
  * เรียกแบบ GET — ใช้กับฟังก์ชันที่แค่ "อ่าน" ข้อมูล พารามิเตอร์เป็นข้อความ/ตัวเลขสั้นๆ เท่านั้น
