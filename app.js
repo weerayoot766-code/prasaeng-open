@@ -491,8 +491,10 @@ async function checkOrderStatus(){
 
 /** 🆕 ดึงพิกัดไรเดอร์ล่าสุดจาก getRiderLocation แล้ววาด/อัปเดตหมุดบนแผนที่ */
 async function updateRiderMapView(riderPhone){
+  alert("🔍 DEBUG: เรียก updateRiderMapView แล้ว riderPhone = [" + riderPhone + "]"); // 🆕 ลบบรรทัดนี้ทีหลังเมื่อเจอปัญหาแล้ว
   try {
     const loc = await apiGet('getRiderLocation', { phone: riderPhone });
+    alert("🔍 DEBUG: ผลลัพธ์ getRiderLocation = " + JSON.stringify(loc)); // 🆕 ลบบรรทัดนี้ทีหลังเมื่อเจอปัญหาแล้ว
     if(!loc.success){
       // 🆕 ยังไม่มีพิกัดไรเดอร์ — ถ้ายังไม่เคยสร้างแผนที่มาก่อนเลย โชว์เหตุผลไว้ให้เห็นชัดๆ (ช่วย debug)
       // แต่ถ้าเคยมีแผนที่แสดงอยู่แล้ว (จากรอบก่อนหน้า) ให้คงไว้ตามเดิม ไม่ลบทิ้ง
@@ -575,16 +577,29 @@ function uploadSlip(){
   if(!currentOrderId){ alert("ยังไม่มีหมายเลขออเดอร์"); return; }
   if(!file){ alert("กรุณาเลือกสลิปก่อน"); return; }
 
+  // 🆕 บีบอัดรูปสลิปก่อนส่ง (เหมือนรูปสินค้า/โลโก้) — รูปสลิปจากกล้องมือถือมักมีขนาดใหญ่มาก
+  // ถ้าส่งดิบๆ เต็มขนาด จะเสี่ยงส่งไม่สำเร็จเวลาเน็ตไม่นิ่ง (เจอปัญหานี้มาแล้วจริง)
   const reader = new FileReader();
-  reader.onload = async function(e){
-    const base64 = e.target.result.split(",")[1];
-    try {
-      await apiPost('uploadSlipToTelegram', { orderId: currentOrderId, fileName: file.name, base64: base64 });
-      alert("ส่งสลิปเรียบร้อย ✅");
-      document.getElementById("slipFile").value = "";
-    } catch(error){
-      alert("ส่งสลิปไม่สำเร็จ: " + error.message);
-    }
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = async function(){
+      const canvas = document.createElement("canvas");
+      const maxWidth = 800; // สลิปต้องอ่านตัวเลขได้ชัด เลยให้กว้างกว่ารูปสินค้าทั่วไปหน่อย
+      const scale = Math.min(1, maxWidth / img.width);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      const base64 = canvas.toDataURL("image/jpeg", 0.75).split(",")[1];
+
+      try {
+        await apiPost('uploadSlipToTelegram', { orderId: currentOrderId, fileName: file.name, base64: base64 });
+        alert("ส่งสลิปเรียบร้อย ✅");
+        document.getElementById("slipFile").value = "";
+      } catch(error){
+        alert("ส่งสลิปไม่สำเร็จ: " + error.message + "\n\nลองเช็คสัญญาณเน็ตแล้วกดส่งใหม่อีกครั้งได้เลยครับ (ยังไม่ถูกส่งซ้ำ ไม่ต้องกังวล)");
+      }
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
