@@ -67,6 +67,15 @@ button{width:100%;background:#ff6b00;color:white;border:none;border-radius:10px;
   <button onclick="connectTelegram()">เชื่อมต่อ Telegram</button>
 </div>
 
+<div class="card" style="margin-top:16px;">
+  <h2>🛵 กำลังวิ่งส่งของอยู่?</h2>
+  <p style="font-size:14px;color:#666;text-align:center;">เปิดหน้านี้ค้างไว้ตลอดเวลาที่วิ่งงาน (ห้ามล็อกจอ) เพื่อให้ลูกค้าเห็นตำแหน่งคุณบนแผนที่แบบเรียลไทม์</p>
+  <label>เบอร์โทรไรเดอร์ (เบอร์ที่ใช้สมัคร)</label>
+  <input id="shareLocationPhone" placeholder="เช่น 0812345678">
+  <button id="shareLocationBtn" onclick="toggleShareLocation()" style="background:#2ecc71;">📍 เริ่มแชร์ตำแหน่ง</button>
+  <p id="shareLocationStatus" style="text-align:center;font-size:13px;color:#888;margin-top:10px;"></p>
+</div>
+
 <script src="api.js"></script>
 <script>
 
@@ -143,6 +152,81 @@ function connectTelegram(){
   }
   window.open("https://t.me/PhrasaengDelivery_bot?start=" + riderId, "_blank");
 }
+
+// ============================================================
+// 🆕 ระบบแชร์ตำแหน่งเรียลไทม์ให้ลูกค้าเห็นบนแผนที่ตอนกำลังวิ่งงาน
+// ใช้ navigator.geolocation.watchPosition ส่งพิกัดเข้าระบบทุกครั้งที่ตำแหน่งขยับ
+// (เบราว์เซอร์จะจำกัดความถี่เองอัตโนมัติ ประมาณทุก 5-15 วินาที)
+// ============================================================
+let shareWatchId = null;
+
+function toggleShareLocation(){
+  if(shareWatchId !== null){
+    stopShareLocation();
+  } else {
+    startShareLocation();
+  }
+}
+
+function startShareLocation(){
+  const phone = document.getElementById("shareLocationPhone").value.trim();
+  if(!phone){
+    alert("กรุณากรอกเบอร์โทรไรเดอร์ก่อน");
+    return;
+  }
+
+  if(!navigator.geolocation){
+    alert("อุปกรณ์นี้ไม่รองรับ GPS");
+    return;
+  }
+
+  shareWatchId = navigator.geolocation.watchPosition(
+    function(position){
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+
+      google_updateLocation(phone, lat, lng);
+
+      const now = new Date();
+      document.getElementById("shareLocationStatus").innerHTML =
+        "🟢 กำลังแชร์ตำแหน่ง — อัปเดตล่าสุด " + now.toLocaleTimeString("th-TH");
+    },
+    function(error){
+      document.getElementById("shareLocationStatus").innerHTML =
+        "❌ ดึงตำแหน่งไม่ได้ กรุณาเปิดสิทธิ์ GPS: " + error.message;
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  );
+
+  document.getElementById("shareLocationBtn").innerHTML = "⏹️ หยุดแชร์ตำแหน่ง";
+  document.getElementById("shareLocationBtn").style.background = "#e74c3c";
+  document.getElementById("shareLocationStatus").innerHTML = "🟡 กำลังขอสิทธิ์ตำแหน่ง...";
+}
+
+function stopShareLocation(){
+  if(shareWatchId !== null){
+    navigator.geolocation.clearWatch(shareWatchId);
+    shareWatchId = null;
+  }
+  document.getElementById("shareLocationBtn").innerHTML = "📍 เริ่มแชร์ตำแหน่ง";
+  document.getElementById("shareLocationBtn").style.background = "#2ecc71";
+  document.getElementById("shareLocationStatus").innerHTML = "⏹️ หยุดแชร์ตำแหน่งแล้ว";
+}
+
+async function google_updateLocation(phone, lat, lng){
+  try {
+    await apiPost('updateRiderLocation', { phone: phone, lat: lat, lng: lng });
+  } catch(error){
+    console.error("ส่งพิกัดไม่สำเร็จ:", error.message);
+  }
+}
+
+// ปิดหน้าเว็บแล้วหยุดแชร์ตำแหน่งอัตโนมัติ กันแบตหมด/พิกัดค้าง
+window.addEventListener("beforeunload", function(){
+  if(shareWatchId !== null){
+    navigator.geolocation.clearWatch(shareWatchId);
+  }
+});
 
 function showConnectStep(riderId){
   document.body.innerHTML = `

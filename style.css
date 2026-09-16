@@ -651,6 +651,14 @@ body{
   font-size:16px;
 }
 
+/* 🆕 หมุดแผนที่ไรเดอร์/ลูกค้า (emoji icon แบบ Leaflet divIcon) */
+.rider-map-icon{
+  font-size:28px;
+  text-align:center;
+  line-height:32px;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.35));
+}
+
 /* 🆕 มือถือจอแคบ — ลดระยะขอบรอบการ์ด/body ให้เนื้อหาขยายใช้พื้นที่จอได้เต็มขึ้น
    (ระวัง: ใช้ padding-left/right/top แยก ไม่ใช้ "padding" รวม เพราะจะไปทับ
    padding-bottom:160px ของ body ด้านบนที่กันเมนูล่างบังเนื้อหา) */

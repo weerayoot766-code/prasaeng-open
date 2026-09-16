@@ -446,6 +446,11 @@ async function confirmOrder(){
   }
 }
 
+// 🆕 ตัวแปรเก็บ instance แผนที่/หมุด ไว้ใช้ซ้ำ (ไม่สร้างแผนที่ใหม่ทุกครั้งที่ poll)
+let riderMapInstance = null;
+let riderMarker = null;
+let customerMarker = null;
+
 async function checkOrderStatus(){
   if(currentOrderId == ""){ alert("ยังไม่มีหมายเลขออเดอร์"); return; }
 
@@ -457,6 +462,7 @@ async function checkOrderStatus(){
 
     if(data.status == "ส่งสำเร็จ"){
       document.getElementById("paymentBox").style.display = "none";
+      document.getElementById("riderMapBox").style.display = "none";
       document.getElementById("riderText").innerHTML = "✅ ส่งสำเร็จแล้ว ขอบคุณที่ใช้บริการครับ";
       return;
     }
@@ -470,11 +476,73 @@ async function checkOrderStatus(){
         "<button>โทรหาไรเดอร์</button></a>" +
         "<br><br>" +
         "<button onclick=\"copyPhone('" + String(data.riderPhone).replace(/-/g,"") + "')\">📋 คัดลอกเบอร์</button>";
+
+      // 🆕 ดึงตำแหน่งไรเดอร์ล่าสุดมาโชว์บนแผนที่
+      updateRiderMapView(data.riderPhone);
     } else {
       document.getElementById("riderText").innerHTML = "ยังไม่มีไรเดอร์รับงาน";
+      document.getElementById("riderMapBox").style.display = "none";
     }
   } catch(error){
     alert("เช็กสถานะไม่สำเร็จ: " + error.message);
+  }
+}
+
+/** 🆕 ดึงพิกัดไรเดอร์ล่าสุดจาก getRiderLocation แล้ววาด/อัปเดตหมุดบนแผนที่ */
+async function updateRiderMapView(riderPhone){
+  try {
+    const loc = await apiGet('getRiderLocation', { phone: riderPhone });
+    if(!loc.success){
+      // ไรเดอร์ยังไม่ได้เปิดหน้าแชร์ตำแหน่ง — ซ่อนแผนที่ไว้ก่อน
+      document.getElementById("riderMapBox").style.display = "none";
+      return;
+    }
+
+    document.getElementById("riderMapBox").style.display = "block";
+
+    if(!riderMapInstance){
+      riderMapInstance = L.map("riderMap");
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap"
+      }).addTo(riderMapInstance);
+    }
+
+    const riderLatLng = [loc.lat, loc.lng];
+
+    if(!riderMarker){
+      riderMarker = L.marker(riderLatLng, {
+        icon: L.divIcon({ html: "🛵", className: "rider-map-icon", iconSize: [32,32] })
+      }).addTo(riderMapInstance).bindPopup("ไรเดอร์");
+    } else {
+      riderMarker.setLatLng(riderLatLng);
+    }
+
+    // ปักหมุดปลายทาง (ที่อยู่ลูกค้า) ไว้เทียบตำแหน่งด้วย ถ้ามีพิกัดอยู่แล้ว
+    if(lat && lng){
+      const customerLatLng = [lat, lng];
+      if(!customerMarker){
+        customerMarker = L.marker(customerLatLng, {
+          icon: L.divIcon({ html: "🏠", className: "rider-map-icon", iconSize: [32,32] })
+        }).addTo(riderMapInstance).bindPopup("ที่อยู่คุณ");
+      } else {
+        customerMarker.setLatLng(customerLatLng);
+      }
+      riderMapInstance.fitBounds([riderLatLng, customerLatLng], { padding: [30,30] });
+    } else {
+      riderMapInstance.setView(riderLatLng, 15);
+    }
+
+    // แก้บั๊กแผนที่ Leaflet แสดงผลไม่เต็มกรอบตอนเพิ่งสร้าง (กล่องถูกซ่อนอยู่ก่อนหน้า)
+    setTimeout(function(){ riderMapInstance.invalidateSize(); }, 200);
+
+    if(loc.updatedAt){
+      const updatedDate = new Date(loc.updatedAt);
+      document.getElementById("riderMapUpdated").innerText =
+        "อัปเดตล่าสุด " + updatedDate.toLocaleTimeString("th-TH");
+    }
+  } catch(error){
+    // ดึงพิกัดไม่สำเร็จ ไม่ต้องขึ้น alert รบกวนผู้ใช้ แค่ซ่อนแผนที่ไว้เฉยๆ
+    document.getElementById("riderMapBox").style.display = "none";
   }
 }
 
@@ -529,6 +597,15 @@ function newOrder(){
   document.getElementById("paymentBox").style.display = "none";
   document.getElementById("statusBox").style.display = "none";
   document.getElementById("trackEmptyState").style.display = "block";
+
+  // 🆕 รีเซ็ตแผนที่ไรเดอร์ กันข้อมูลออเดอร์เก่าค้างอยู่ตอนสั่งใหม่
+  document.getElementById("riderMapBox").style.display = "none";
+  if(riderMapInstance){
+    riderMapInstance.remove();
+    riderMapInstance = null;
+    riderMarker = null;
+    customerMarker = null;
+  }
 
   if(document.getElementById("slipFile")){
     document.getElementById("slipFile").value = "";
