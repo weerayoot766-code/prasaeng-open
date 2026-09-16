@@ -494,8 +494,13 @@ async function updateRiderMapView(riderPhone){
   try {
     const loc = await apiGet('getRiderLocation', { phone: riderPhone });
     if(!loc.success){
-      // ไรเดอร์ยังไม่ได้เปิดหน้าแชร์ตำแหน่ง — ซ่อนแผนที่ไว้ก่อน
-      document.getElementById("riderMapBox").style.display = "none";
+      // 🆕 ยังไม่มีพิกัดไรเดอร์ — ถ้ายังไม่เคยสร้างแผนที่มาก่อนเลย โชว์เหตุผลไว้ให้เห็นชัดๆ (ช่วย debug)
+      // แต่ถ้าเคยมีแผนที่แสดงอยู่แล้ว (จากรอบก่อนหน้า) ให้คงไว้ตามเดิม ไม่ลบทิ้ง
+      if(!riderMapInstance){
+        document.getElementById("riderMapBox").style.display = "block";
+        document.getElementById("riderMap").innerHTML =
+          '<p style="text-align:center;color:#999;font-size:13px;padding:20px;">ไรเดอร์ยังไม่ได้เปิดหน้าแชร์ตำแหน่ง หรือยังไม่มีพิกัดล่าสุด</p>';
+      }
       return;
     }
 
@@ -542,8 +547,13 @@ async function updateRiderMapView(riderPhone){
         "อัปเดตล่าสุด " + updatedDate.toLocaleTimeString("th-TH");
     }
   } catch(error){
-    // ดึงพิกัดไม่สำเร็จ ไม่ต้องขึ้น alert รบกวนผู้ใช้ แค่ซ่อนแผนที่ไว้เฉยๆ
-    document.getElementById("riderMapBox").style.display = "none";
+    // 🆕 โชว์ error ตรงๆ ในหน้าเว็บแทนการซ่อนเงียบๆ (debug ได้จากมือถือโดยไม่ต้องเปิด DevTools)
+    // แต่ถ้าเคยมีแผนที่แสดงอยู่แล้ว ให้คงไว้ตามเดิม ไม่ลบทิ้งเพราะ error ชั่วคราว
+    if(!riderMapInstance){
+      document.getElementById("riderMapBox").style.display = "block";
+      document.getElementById("riderMap").innerHTML =
+        '<p style="text-align:center;color:#d63333;font-size:13px;padding:20px;">โหลดแผนที่ไม่สำเร็จ: ' + escapeHtml(error.message) + '</p>';
+    }
   }
 }
 
