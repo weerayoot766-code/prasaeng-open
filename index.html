@@ -93,6 +93,9 @@
 </div> <!-- ปิด tabpage-home -->
 
 <div class="tab-page" id="tabpage-order">
+<div class="search-bar-wrap">
+  <input type="text" id="searchBox" placeholder="🔍 ค้นหาร้านค้า หรือสินค้า..." oninput="renderSearchResults(this.value)">
+</div>
 <div id="productList">
   กำลังโหลดสินค้า...
 </div>

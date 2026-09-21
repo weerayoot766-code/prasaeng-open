@@ -35,6 +35,7 @@ let pendingQty = 1;
 
 function openQtyModal(index){
   const product = window.productsData[index];
+  if(product.inStock === false){ alert("สินค้านี้หมดชั่วคราว ขออภัยครับ"); return; } // 🆕
   pendingProductIndex = index;
   pendingQty = 1;
 
@@ -104,6 +105,9 @@ async function showStoreHome(){
   localStorage.removeItem("pd_cart");
   window.renderCart();
 
+  const searchBoxEl = document.getElementById("searchBox"); // 🆕 เคลียร์ช่องค้นหาทุกครั้งที่กลับหน้าแรก
+  if(searchBoxEl){ searchBoxEl.value = ""; }
+
   const savedPhone = localStorage.getItem("pd_memberPhone");
   if(savedPhone){
     try {
@@ -124,6 +128,88 @@ function restoreViewOrHome(){
   } else {
     showStoreHome();
   }
+}
+
+/**
+ * 🆕 ค้นหาร้านค้า + สินค้าพร้อมกัน — พิมพ์คำอะไรก็ได้ในช่องค้นหาด้านบน
+ * ถ้าลบข้อความจนว่าง จะกลับไปหน้าเดิม (หน้าแรกหรือหน้าร้านที่เปิดค้างไว้) อัตโนมัติ
+ */
+function renderSearchResults(query){
+  const q = query.trim().toLowerCase();
+  if(q === ""){
+    restoreViewOrHome();
+    return;
+  }
+
+  const allShops = [];
+  (window.productsData || []).forEach(function(p){
+    const shop = String(p.shop || "ไม่ระบุร้าน");
+    if(!allShops.includes(shop)){ allShops.push(shop); }
+  });
+  const matchedShops = allShops.filter(function(shop){
+    return shop.toLowerCase().includes(q);
+  });
+
+  const matchedProducts = [];
+  (window.productsData || []).forEach(function(p, idx){
+    if(String(p.name || "").toLowerCase().includes(q)){
+      matchedProducts.push({ product: p, index: idx });
+    }
+  });
+
+  let html = '<div class="card"><h2>🔍 ผลการค้นหา: "' + escapeHtml(query) + '"</h2>';
+
+  if(matchedShops.length === 0 && matchedProducts.length === 0){
+    html += '<p style="text-align:center;color:#999;padding:20px 0;">ไม่พบร้านหรือสินค้าที่ตรงกับคำค้นหา</p>';
+  }
+
+  if(matchedShops.length > 0){
+    html += '<h3 style="margin:10px 0;">🏪 ร้านค้า</h3><div class="shop-grid">';
+    matchedShops.forEach(function(shop){
+      const storeInfo = (window.storesData || []).find(function(s){ return s.name === shop; });
+      const shopImage = storeInfo && storeInfo.logo ? storeInfo.logo : "";
+      html += '<div class="shop-tile" onclick="showProductsByShop(\'' + escapeHtml(shop) + '\')">';
+      if(shopImage){
+        html += '<img class="shop-tile-img" src="' + escapeHtml(shopImage) + '">';
+      } else {
+        html += '<div class="shop-tile-icon">🏪</div>';
+      }
+      html += '<span class="shop-tile-name">' + escapeHtml(shop) + '</span></div>';
+    });
+    html += '</div>';
+  }
+
+  if(matchedProducts.length > 0){
+    html += '<h3 style="margin:16px 0 10px;">🛍️ สินค้า</h3><div class="products-grid">';
+    matchedProducts.forEach(function(item){
+      const p = item.product;
+      const inStock = p.inStock !== false;
+      html += '<div class="product-card' + (inStock ? '' : ' out-of-stock') + '" onclick="' + (inStock ? "openSearchProduct(" + item.index + ")" : "") + '">';
+      if(p.image){ html += '<img class="product-img" src="' + escapeHtml(p.image) + '">'; }
+      if(!inStock){ html += '<span class="out-of-stock-badge">หมดชั่วคราว</span>'; }
+      html += '<h3>' + escapeHtml(p.name) + '</h3>';
+      html += '<p class="product-desc" style="font-size:11px;">🏪 ' + escapeHtml(p.shop) + '</p>';
+      html += '<p><b>' + Number(p.price) + ' บาท</b></p>';
+      if(inStock){
+        html += '<button type="button" onclick="event.stopPropagation(); openSearchProduct(' + item.index + ')">เพิ่มสินค้าลงตะกร้า</button>';
+      } else {
+        html += '<button type="button" disabled>สินค้าหมดชั่วคราว</button>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  html += '</div>';
+  document.getElementById("productList").innerHTML = html;
+}
+
+/** 🆕 กดสินค้าจากผลค้นหา — สลับไปหน้าร้านนั้นให้ครบก่อน (ตั้งเบอร์/พิกัดร้าน + เคลียร์ตะกร้าถ้าคนละร้าน) แล้วค่อยเปิดหน้าต่างเลือกจำนวน */
+function openSearchProduct(index){
+  const product = window.productsData[index];
+  if(!product) return;
+  showProductsByShop(product.shop, product.shop === selectedShopName);
+  openQtyModal(index);
 }
 
 function renderStoreHomeHtml(orderedShops){
@@ -270,6 +356,9 @@ function showProductsByShop(shopName, isRestore){
   }
   window.renderCart();
 
+  const searchBoxEl = document.getElementById("searchBox"); // 🆕 เคลียร์ช่องค้นหาตอนเข้าดูร้านแบบปกติ
+  if(searchBoxEl){ searchBoxEl.value = ""; }
+
   let html = `
     <button onclick="showStoreHome()" style="margin-bottom:15px; background:#555;">
       ← กลับไปเลือกร้าน
@@ -287,17 +376,23 @@ function showProductsByShop(shopName, isRestore){
     const price = Number(product.price || 0);
     const image = String(product.image || "");
     const description = String(product.description || "");
+    const inStock = product.inStock !== false; // 🆕 ค่าเริ่มต้น = มีสินค้า
 
-    html += '<div class="product-card" onclick="openQtyModal(' + index + ')">';
+    html += '<div class="product-card' + (inStock ? '' : ' out-of-stock') + '" onclick="' + (inStock ? "openQtyModal(" + index + ")" : "") + '">';
     if(image !== ""){
       html += '<img class="product-img" src="' + escapeHtml(image) + '">';
     }
+    if(!inStock){ html += '<span class="out-of-stock-badge">หมดชั่วคราว</span>'; }
     html += '<h3>' + escapeHtml(name) + '</h3>';
     html += '<p class="product-desc">🍴 ' + escapeHtml(description) + '</p>';
     html += '<p><b>' + price + ' บาท</b></p>';
-    html += '<button type="button" class="add-btn" data-index="' + index + '" onclick="event.stopPropagation(); openQtyModal(' + index + ')">';
-    html += 'เพิ่มสินค้าลงตะกร้า';
-    html += '</button>';
+    if(inStock){
+      html += '<button type="button" class="add-btn" data-index="' + index + '" onclick="event.stopPropagation(); openQtyModal(' + index + ')">';
+      html += 'เพิ่มสินค้าลงตะกร้า';
+      html += '</button>';
+    } else {
+      html += '<button type="button" disabled>สินค้าหมดชั่วคราว</button>';
+    }
     html += '</div>';
   });
 

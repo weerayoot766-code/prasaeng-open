@@ -28,7 +28,11 @@ input,select,textarea{ width:100%; padding:12px; border-radius:10px; border:1px 
 .prod-row{ border:1px solid #eee; border-radius:12px; padding:10px; margin-bottom:10px; display:flex; gap:10px; align-items:center; }
 .prod-row img{ width:60px; height:60px; object-fit:cover; border-radius:8px; background:#f5f5f5; }
 .prod-row .info{ flex:1; }
-.prod-row .edit-btn{ width:auto; background:#ff9900; margin:0; }
+.prod-row .edit-btn{ width:auto; background:#ff9900; margin:0; font-size:12px; padding:8px 10px; }
+.prod-row-out{ opacity:.6; background:#faf5f5; }
+.stock-toggle-btn{ width:auto; margin:0; font-size:11px; padding:8px 10px; white-space:nowrap; border:none; border-radius:8px; cursor:pointer; }
+.stock-toggle-btn.in-stock{ background:#e6f9ee; color:#1a9c52; }
+.stock-toggle-btn.out-stock{ background:#fdeaea; color:#d63333; }
 </style>
 </head>
 <body>
@@ -283,18 +287,36 @@ function renderMyProducts(products){
 
   let html = "";
   products.forEach(function(p){
+    const inStock = p.inStock !== false; // 🆕 ค่าเริ่มต้น = มีสินค้า
     html +=
-      '<div id="prodRow_' + p.rowIndex + '" class="prod-row">' +
+      '<div id="prodRow_' + p.rowIndex + '" class="prod-row' + (inStock ? '' : ' prod-row-out') + '">' +
         '<img src="' + escapeHtml(p.image || "") + '">' +
         '<div class="info">' +
           '<b>' + escapeHtml(p.name) + '</b><br>' +
           '<span>' + Number(p.price) + ' บาท | ' + escapeHtml(p.category || "") + '</span><br>' +
           '<span style="color:#888;font-size:13px;">สถานะ: ' + escapeHtml(p.status || "") + '</span>' +
         '</div>' +
-        '<button class="edit-btn" onclick="startEditProduct(' + p.rowIndex + ')">✏️ แก้ไข</button>' +
+        '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">' +
+          '<button class="edit-btn" onclick="startEditProduct(' + p.rowIndex + ')">✏️ แก้ไข</button>' +
+          '<button class="stock-toggle-btn ' + (inStock ? 'in-stock' : 'out-stock') + '" onclick="toggleProductStock(' + p.rowIndex + ', ' + inStock + ')">' +
+            (inStock ? '🟢 มีสินค้า' : '🔴 หมดชั่วคราว') +
+          '</button>' +
+        '</div>' +
       '</div>';
   });
   box.innerHTML = html;
+}
+
+/** 🆕 สลับสถานะสินค้าหมดชั่วคราว/มีสินค้า ทีละชิ้น */
+async function toggleProductStock(rowIndex, currentlyInStock){
+  const newStock = !currentlyInStock;
+  try {
+    const res = await apiPost('setProductStock', { rowIndex: rowIndex, storeId: currentStoreId, pin: currentPin, inStock: newStock });
+    if(!res.success){ alert(res.message || "อัปเดตไม่สำเร็จ"); return; }
+    loadDashboard();
+  } catch(error){
+    alert("อัปเดตไม่สำเร็จ: " + error.message);
+  }
 }
 
 function startEditProduct(rowIndex){
