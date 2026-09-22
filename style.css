@@ -226,6 +226,12 @@ input,select{
   color:#a4864f;
   margin-top:3px;
 }
+.cart-item-options{
+  font-size:11.5px;
+  color:#c47a2c;
+  margin-top:4px;
+  line-height:1.5;
+}
 .cart-remove-btn{
   width:34px; height:34px;
   border-radius:10px;
@@ -690,6 +696,36 @@ body{
 .product-card.out-of-stock button{
   background:#bbb !important;
   cursor:not-allowed;
+}
+
+/* 🆕 ตัวเลือกเครื่องดื่ม (หวาน/แยกน้ำ/Blue Card) ในหน้าต่างเลือกจำนวน */
+.option-pill-row{ display:flex; flex-wrap:wrap; gap:8px; }
+.option-pill{
+  padding:9px 16px;
+  border-radius:20px;
+  border:1.5px solid #ffe3f0;
+  background:#fff;
+  color:#666;
+  font-size:13.5px;
+  font-weight:600;
+  cursor:pointer;
+}
+.option-pill.active{
+  background:#ff2f92;
+  color:#fff;
+  border-color:#ff2f92;
+}
+#blueCardInput{
+  width:100%;
+  padding:12px 14px;
+  border:1.5px solid #ffe3f0;
+  border-radius:12px;
+  font-size:14px;
+  box-sizing:border-box;
+}
+#blueCardInput:focus{
+  outline:none;
+  border-color:#ff2f92;
 }
 
 /* 🆕 หมุดแผนที่ไรเดอร์/ลูกค้า (emoji icon แบบ Leaflet divIcon) */

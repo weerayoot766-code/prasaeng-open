@@ -32,10 +32,13 @@ document.addEventListener("click", function(e){
 
 let pendingProductIndex = null;
 let pendingQty = 1;
+let pendingSweetness = "100%"; // 🆕
+let pendingWaterStyle = "ผสมเลย"; // 🆕
+const DEFAULT_BLUE_CARD_ = "0932945790"; // 🆕 ถ้าลูกค้าไม่ระบุ ใช้เบอร์นี้แทน
 
 function openQtyModal(index){
   const product = window.productsData[index];
-  if(product.inStock === false){ alert("สินค้านี้หมดชั่วคราว ขออภัยครับ"); return; } // 🆕
+  if(product.inStock === false){ alert("สินค้านี้หมดชั่วคราว ขออภัยครับ"); return; }
   pendingProductIndex = index;
   pendingQty = 1;
 
@@ -45,7 +48,44 @@ function openQtyModal(index){
   document.getElementById("qtyModalPrice").innerText = Number(product.price) + " บาท / รายการ";
   document.getElementById("qtyModalDesc").innerText = product.description || "";
   document.getElementById("qtyModalCount").innerText = pendingQty;
+
+  // 🆕 เฉพาะหมวด "เครื่องดื่ม" เท่านั้น ที่โชว์ตัวเลือกหวาน/แยกน้ำ/Blue Card
+  const isDrink = product.category === "เครื่องดื่ม";
+  const drinkBox = document.getElementById("qtyModalDrinkOptions");
+  if(isDrink){
+    pendingSweetness = "100%";
+    pendingWaterStyle = "ผสมเลย";
+    drinkBox.style.display = "block";
+    renderSweetnessOptions();
+    renderWaterStyleOptions();
+    document.getElementById("blueCardInput").value = "";
+  } else {
+    drinkBox.style.display = "none";
+  }
+
   document.getElementById("qtyModalOverlay").style.display = "flex";
+}
+
+function renderSweetnessOptions(){
+  const options = ["25%","50%","75%","100%"];
+  document.getElementById("sweetnessOptions").innerHTML = options.map(function(o){
+    return '<button type="button" class="option-pill' + (o === pendingSweetness ? ' active' : '') + '" onclick="selectSweetness(\'' + o + '\')">' + o + '</button>';
+  }).join('');
+}
+function selectSweetness(value){
+  pendingSweetness = value;
+  renderSweetnessOptions();
+}
+
+function renderWaterStyleOptions(){
+  const options = ["ผสมเลย","แยกน้ำ"];
+  document.getElementById("waterStyleOptions").innerHTML = options.map(function(o){
+    return '<button type="button" class="option-pill' + (o === pendingWaterStyle ? ' active' : '') + '" onclick="selectWaterStyle(\'' + o + '\')">' + o + '</button>';
+  }).join('');
+}
+function selectWaterStyle(value){
+  pendingWaterStyle = value;
+  renderWaterStyleOptions();
 }
 
 function closeQtyModal(){
@@ -59,13 +99,26 @@ function changeQty(delta){
 
 function confirmAddToCart(){
   const product = window.productsData[pendingProductIndex];
+  const isDrink = product.category === "เครื่องดื่ม";
+
+  // 🆕 เก็บตัวเลือกที่เลือกไว้ (ถ้าเป็นเครื่องดื่ม) — ถ้าไม่ระบุ Blue Card ใช้เบอร์ร้านแทนอัตโนมัติ
+  const options = isDrink ? {
+    sweetness: pendingSweetness,
+    waterStyle: pendingWaterStyle,
+    blueCard: (document.getElementById("blueCardInput").value.trim() || DEFAULT_BLUE_CARD_)
+  } : null;
+
+  // 🆕 รวมรายการซ้ำได้เฉพาะที่ตัวเลือกตรงกันทุกอย่างเป๊ะๆ เท่านั้น (หวานคนละระดับ = แยกรายการ)
   const existing = cart.find(function(item){
-    return item.name === product.name && Number(item.price) === Number(product.price);
+    return item.name === product.name &&
+      Number(item.price) === Number(product.price) &&
+      JSON.stringify(item.options || null) === JSON.stringify(options);
   });
+
   if(existing){
     existing.qty += pendingQty;
   } else {
-    cart.push({ name: product.name, price: Number(product.price), qty: pendingQty });
+    cart.push({ name: product.name, price: Number(product.price), qty: pendingQty, options: options });
   }
   closeQtyModal();
   window.renderCart();
@@ -407,12 +460,19 @@ window.renderCart = function(){
   cart.forEach(function(item,index){
     const qty = item.qty || 1;
     const lineTotal = Number(item.price) * qty;
+    let optionsLine = ""; // 🆕
+    if(item.options){
+      optionsLine = '<div class="cart-item-options">🍬 หวาน ' + escapeHtml(item.options.sweetness) +
+        ' · 🧊 ' + escapeHtml(item.options.waterStyle) +
+        ' · 💳 ' + escapeHtml(item.options.blueCard) + '</div>';
+    }
     html += `
       <div class="cart-item">
         <div class="cart-item-index">${index+1}</div>
         <div class="cart-item-info">
           <div class="cart-item-name">${escapeHtml(item.name)}</div>
           <div class="cart-item-meta">x${qty} · ${lineTotal.toLocaleString()} บาท</div>
+          ${optionsLine}
         </div>
         <button class="cart-remove-btn" onclick="window.removeItem(${index})" title="ลบรายการนี้">🗑️</button>
       </div>
@@ -508,7 +568,11 @@ async function confirmOrder(){
 
   let itemsText = cart.map(function(item, index) {
     const qty = item.qty || 1;
-    return (index + 1) + ". " + item.name + " x" + qty + " - " + (Number(item.price) * qty) + " บาท";
+    let line = (index + 1) + ". " + item.name + " x" + qty + " - " + (Number(item.price) * qty) + " บาท";
+    if(item.options){ // 🆕 แนบตัวเลือกที่ลูกค้าเลือกไว้ ให้ร้านชงถูก
+      line += "\n    🍬 หวาน " + item.options.sweetness + " | 🧊 " + item.options.waterStyle + " | 💳 Blue Card: " + item.options.blueCard;
+    }
+    return line;
   }).join("\n");
 
   let productTotal = cart.reduce(function(sum, item){

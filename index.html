@@ -198,6 +198,18 @@
     <h3 id="qtyModalName" style="margin:14px 0 6px; font-size:24px;"></h3>
     <p id="qtyModalPrice" style="color:#888;margin:0; font-size:18px;"></p>
     <p id="qtyModalDesc" class="qty-modal-desc"></p>
+
+    <div id="qtyModalDrinkOptions" style="display:none;text-align:left;margin:10px 0;">
+      <label style="font-weight:bold;font-size:14px;display:block;margin-bottom:8px;">🍬 ระดับความหวาน</label>
+      <div id="sweetnessOptions" class="option-pill-row"></div>
+
+      <label style="font-weight:bold;font-size:14px;display:block;margin:14px 0 8px;">🧊 รูปแบบน้ำแข็ง</label>
+      <div id="waterStyleOptions" class="option-pill-row"></div>
+
+      <label style="font-weight:bold;font-size:14px;display:block;margin:14px 0 8px;">💳 เลข Blue Card (ถ้ามี)</label>
+      <input type="text" id="blueCardInput" placeholder="ไม่ระบุ = ใช้เบอร์ร้าน 093-2945790">
+    </div>
+
     <div class="qty-stepper">
       <button class="qty-btn" onclick="changeQty(-1)">−</button>
       <span id="qtyModalCount" class="qty-count">1</span>
