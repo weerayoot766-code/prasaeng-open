@@ -163,6 +163,9 @@ function renderDashboard(result){
   html += result.isOpen ? '🟢 ร้านเปิดอยู่ — กดเพื่อปิดร้าน' : '🔴 ร้านปิดอยู่ — กดเพื่อเปิดร้าน';
   html += '</div>';
 
+  // 🆕 ปุ่มโปรโมทร้าน — พาไปหน้าเรทโฆษณา
+  html += '<button onclick="window.location.href=\'ads.html\'" style="background:linear-gradient(135deg,#ffb703,#fb8500);margin-bottom:10px;">📢 โปรโมทร้าน</button>';
+
   // 🆕 การ์ดจัดการโลโก้ร้าน
   html += '<div class="card"><h2>🖼️ โลโก้ร้าน</h2>';
   html += '<p style="color:#666;font-size:14px;">โลโก้นี้จะแสดงในหน้ารายชื่อร้านค้าให้ลูกค้าเห็น</p>';

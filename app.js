@@ -149,6 +149,7 @@ async function loadProducts(){
   }
 
   restoreViewOrHome();
+  renderHomeRecommendedGrid(); // 🆕
   renderHomeShopGrid();
 }
 
@@ -381,6 +382,44 @@ function renderHomeShopGrid(){
     }
     html += '<span class="shop-tile-name">' + escapeHtml(shop) + '</span>';
     if(!isOpen){ html += '<span class="shop-closed-badge">ปิดอยู่</span>'; }
+    html += '</div>';
+  });
+
+  html += '</div>';
+  box.innerHTML = html;
+}
+
+/** 🆕 ร้านแนะนำวันนี้ — เรียงแนวนอน จำกัดโชว์ 3 ร้านตามแพ็กที่ขาย */
+function renderHomeRecommendedGrid(){
+  const box = document.getElementById("homeRecommendedGrid");
+  if(!box) return;
+
+  const recommendedShops = (window.storesData || [])
+    .filter(function(s){ return s.isRecommended; })
+    .slice(0, 3); // จำกัดแค่ 3 ร้านตามแพ็ก แม้แอดมินจะตั้งไว้เกินก็โชว์แค่ 3 แรก
+
+  if(recommendedShops.length === 0){
+    box.innerHTML = "<p style='text-align:center;color:#999;font-size:13px;'>ยังไม่มีร้านแนะนำวันนี้</p>";
+    return;
+  }
+
+  let html = '<div class="recommended-row">';
+
+  recommendedShops.forEach(function(s){
+    const isOpen = s.isOpen !== false;
+    const clickAction = isOpen
+      ? "goToShopFromAd('" + escapeHtml(s.name) + "')"
+      : "alert('ร้านนี้ปิดให้บริการชั่วคราวครับ')";
+
+    html += '<div class="recommended-card" onclick="' + clickAction + '">';
+    html += '<span class="recommended-badge">🏆 ร้านแนะนำ</span><br>';
+    if(s.logo){
+      html += '<img class="recommended-card-img" src="' + escapeHtml(s.logo) + '">';
+    } else {
+      html += '<div class="recommended-card-icon">🏪</div>';
+    }
+    html += '<span class="recommended-card-name">' + escapeHtml(s.name) + '</span>';
+    html += '<span class="recommended-card-category">' + escapeHtml(s.category || "") + '</span>';
     html += '</div>';
   });
 
