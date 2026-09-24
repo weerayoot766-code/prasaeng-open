@@ -875,6 +875,12 @@ function showMerchantPage(){
         <option value="ร้านยา">ร้านยา</option>
         <option value="เบเกอรี่">เบเกอรี่</option>
         <option value="ผลไม้">ผลไม้</option>
+        <option value="อุปกรณ์ไอที">อุปกรณ์ไอที</option>
+        <option value="อาหารสด">อาหารสด</option>
+        <option value="เสื้อผ้า">เสื้อผ้า</option>
+        <option value="ของใช้ในบ้าน">ของใช้ในบ้าน</option>
+        <option value="เครื่องสำอาง">เครื่องสำอาง</option>
+        <option value="อุปกรณ์การเรียน">อุปกรณ์การเรียน</option>
         <option value="อื่นๆ">อื่นๆ</option>
       </select>
 
@@ -905,6 +911,10 @@ function showMerchantPage(){
         <option value="ของใช้ในบ้าน">ของใช้ในบ้าน</option>
         <option value="ยาและสุขภาพ">ยาและสุขภาพ</option>
         <option value="ขนม">ขนม</option>
+        <option value="อาหารสด">อาหารสด</option>
+        <option value="ไข่ไก่">ไข่ไก่</option>
+        <option value="อุปกรณ์ไอที">อุปกรณ์ไอที</option>
+        <option value="เครื่องสำอาง">เครื่องสำอาง</option>
         <option value="อื่นๆ">อื่นๆ</option>
       </select>
 
@@ -1095,6 +1105,10 @@ function startEditProduct(rowIndex){
         '<option value="ของใช้ในบ้าน">ของใช้ในบ้าน</option>' +
         '<option value="ยาและสุขภาพ">ยาและสุขภาพ</option>' +
         '<option value="ขนม">ขนม</option>' +
+        '<option value="อาหารสด">อาหารสด</option>' +
+        '<option value="ไข่ไก่">ไข่ไก่</option>' +
+        '<option value="อุปกรณ์ไอที">อุปกรณ์ไอที</option>' +
+        '<option value="เครื่องสำอาง">เครื่องสำอาง</option>' +
         '<option value="อื่นๆ">อื่นๆ</option>' +
       '</select><br><br>' +
       '<input id="editDescription_' + rowIndex + '" value="' + escapeHtml(p.description || "") + '" placeholder="รายละเอียดสินค้า"><br><br>' +

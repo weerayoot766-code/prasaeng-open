@@ -184,6 +184,10 @@ function renderDashboard(result){
   html += '<option value="ของใช้ในบ้าน">ของใช้ในบ้าน</option>';
   html += '<option value="ยาและสุขภาพ">ยาและสุขภาพ</option>';
   html += '<option value="ขนม">ขนม</option>';
+  html += '<option value="อาหารสด">อาหารสด</option>';
+  html += '<option value="ไข่ไก่">ไข่ไก่</option>';
+  html += '<option value="อุปกรณ์ไอที">อุปกรณ์ไอที</option>';
+  html += '<option value="เครื่องสำอาง">เครื่องสำอาง</option>';
   html += '<option value="อื่นๆ">อื่นๆ</option>';
   html += '</select>';
   html += '<input id="productName" placeholder="ชื่อสินค้า เช่น ข้าวกะเพราไก่">';
@@ -336,6 +340,10 @@ function startEditProduct(rowIndex){
         '<option value="ของใช้ในบ้าน">ของใช้ในบ้าน</option>' +
         '<option value="ยาและสุขภาพ">ยาและสุขภาพ</option>' +
         '<option value="ขนม">ขนม</option>' +
+        '<option value="อาหารสด">อาหารสด</option>' +
+        '<option value="ไข่ไก่">ไข่ไก่</option>' +
+        '<option value="อุปกรณ์ไอที">อุปกรณ์ไอที</option>' +
+        '<option value="เครื่องสำอาง">เครื่องสำอาง</option>' +
         '<option value="อื่นๆ">อื่นๆ</option>' +
       '</select>' +
       '<input id="editDescription_' + rowIndex + '" value="' + escapeHtml(p.description || "") + '" placeholder="รายละเอียดสินค้า">' +
