@@ -134,22 +134,22 @@ function escapeHtml(text){
 // 🆕 โหลดสินค้า + ร้านค้า ผ่าน API (แทน google.script.run เดิม)
 // ============================================================
 async function loadProducts(){
-  try {
-    window.productsData = await apiGet('getProducts') || [];
-  } catch(error){
-    window.productsData = [];
+  // 🆕 ยิงทั้งสองคำขอพร้อมกันเลย (ไม่รอตัวแรกเสร็จก่อน) ลดเวลารวมจาก "บวกกัน" เหลือแค่ "เท่าตัวที่ช้าที่สุด"
+  const productsPromise = apiGet('getProducts').catch(function(error){
     const box = document.getElementById("productList");
     if(box){ box.innerHTML = "โหลดสินค้าไม่สำเร็จ: " + error.message; }
-  }
+    return [];
+  });
+  const storesPromise = apiGet('getApprovedStores').catch(function(){
+    return [];
+  });
 
-  try {
-    window.storesData = await apiGet('getApprovedStores') || [];
-  } catch(error){
-    window.storesData = [];
-  }
+  const results = await Promise.all([productsPromise, storesPromise]);
+  window.productsData = results[0] || [];
+  window.storesData = results[1] || [];
 
   restoreViewOrHome();
-  renderHomeRecommendedGrid(); // 🆕
+  renderHomeRecommendedGrid();
   renderHomeShopGrid();
 }
 
