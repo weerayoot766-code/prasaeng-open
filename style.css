@@ -310,6 +310,24 @@ input,select{
   padding:34px 10px;
   font-size:14px;
 }
+.coupon-box{
+  margin-top:16px;
+  padding:14px;
+  background:linear-gradient(135deg,#fff0f7,#fff8fb);
+  border:1.5px dashed #ff8fc4;
+  border-radius:14px;
+}
+.coupon-box select{
+  width:100%;
+  margin-top:8px;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid #ffc2e0;
+  font-size:14px;
+  background:#fff;
+  color:#a3134f;
+  font-weight:bold;
+}
 .cart-summary{
   margin-top:14px;
   padding-top:14px;

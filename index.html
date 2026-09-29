@@ -57,6 +57,11 @@
     🔑 จัดการร้านค้า
   </button>
 
+  <button class="btn-store" style="background:linear-gradient(135deg,#9d174d,#c9a44c);"
+          onclick="window.location.href='member.html'">
+    💎 สมาชิกของฉัน (คูปอง/ประวัติ)
+  </button>
+
   <button class="btn-rider"
         onclick="window.location.href='rider.html'">
   🛵 สมัครไรเดอร์
@@ -118,9 +123,17 @@
     <div class="cart-empty">ยังไม่มีสินค้าในตะกร้า</div>
   </div>
 
+  <div id="couponBox" class="coupon-box" style="display:none;">
+    <label style="font-weight:bold;font-size:14px;">🎟️ คูปองของฉัน</label>
+    <select id="couponSelect" onchange="window.onCouponSelected()">
+      <option value="">ไม่ใช้คูปอง</option>
+    </select>
+  </div>
+
   <div class="cart-summary">
     <div class="cart-summary-row"><span>ค่าสินค้า</span><span id="sumProduct">0 บาท</span></div>
     <div class="cart-summary-row"><span>ค่าจัดส่ง</span><span id="sumDelivery">0 บาท</span></div>
+    <div class="cart-summary-row" id="sumDiscountRow" style="display:none;color:#e0218a;"><span>ส่วนลดคูปอง</span><span id="sumDiscount">0 บาท</span></div>
     <div class="cart-summary-total"><span>ยอดรวมทั้งหมด</span><span id="sumTotal">0 บาท</span></div>
   </div>
 </div>

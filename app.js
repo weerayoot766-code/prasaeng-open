@@ -12,6 +12,10 @@ let distanceKm = 0;
 let currentOrderId = "";
 const promptPayId = "0932945790";
 
+// 🆕 ระบบคูปอง
+let selectedCouponId = "";
+let memberCouponsCache = [];
+
 // ---------- สลับแท็บด้านล่าง ----------
 function switchTab(tabName){
   document.querySelectorAll(".tab-page").forEach(function(el){
@@ -21,6 +25,67 @@ function switchTab(tabName){
     el.classList.toggle("active", el.dataset.tab === tabName);
   });
   window.scrollTo(0, 0);
+
+  if(tabName === "cart"){ loadMemberCoupons(); } // 🆕 เข้าตะกร้าทีไร เช็คคูปองที่มีทุกครั้ง
+}
+
+// 🆕 โหลดคูปองที่ใช้ได้ของสมาชิก (ต้องล็อกอินสมาชิกไว้ก่อน) มาให้เลือกใช้ตอนสั่งของ
+async function loadMemberCoupons(){
+  const box = document.getElementById("couponBox");
+  const select = document.getElementById("couponSelect");
+  if(!box || !select) return;
+
+  const phone = localStorage.getItem("pd_memberPhone");
+  if(!phone){ box.style.display = "none"; return; }
+
+  try {
+    const coupons = await apiGet('getMemberCoupons', { phone: phone });
+    memberCouponsCache = coupons || [];
+  } catch(error){
+    memberCouponsCache = [];
+  }
+
+  if(memberCouponsCache.length === 0){ box.style.display = "none"; return; }
+
+  // 🆕 ถ้ามากดปุ่ม "ใช้คูปองนี้" มาจากหน้าสมาชิก (member.html) ให้เลือกคูปองนั้นไว้ให้อัตโนมัติ
+  const pendingCoupon = localStorage.getItem("pd_selectedCouponId");
+  if(pendingCoupon){
+    selectedCouponId = pendingCoupon;
+    localStorage.removeItem("pd_selectedCouponId");
+  }
+
+  let html = '<option value="">ไม่ใช้คูปอง</option>';
+  memberCouponsCache.forEach(function(c){
+    const label = c.description + " (หมดอายุ " + c.expiryDate + ")";
+    html += '<option value="' + c.couponId + '">' + escapeHtml(label) + '</option>';
+  });
+  select.innerHTML = html;
+  box.style.display = "block";
+
+  // ถ้าเคยเลือกคูปองนี้ไว้แล้วแต่หมดไปจากลิสต์ (ใช้ไปแล้ว/หมดอายุ) ให้ล้างค่า
+  if(selectedCouponId && !memberCouponsCache.some(function(c){ return c.couponId === selectedCouponId; })){
+    selectedCouponId = "";
+  }
+  select.value = selectedCouponId;
+  window.renderCart();
+}
+
+// 🆕 เมื่อลูกค้าเลือก/ยกเลิกคูปองในตะกร้า
+window.onCouponSelected = function(){
+  const select = document.getElementById("couponSelect");
+  selectedCouponId = select ? select.value : "";
+  window.renderCart();
+};
+
+// 🆕 คำนวณส่วนลดที่ "คาดว่าจะได้" ไว้โชว์ในตะกร้า (ยอดจริงคำนวณซ้ำฝั่งเซิร์ฟเวอร์ตอนยืนยันออเดอร์เสมอ)
+function getEstimatedCouponDiscount(){
+  if(!selectedCouponId) return 0;
+  const coupon = memberCouponsCache.find(function(c){ return c.couponId === selectedCouponId; });
+  if(!coupon || coupon.appliesTo !== "delivery") return 0;
+  if(coupon.discountType === "percent"){
+    return Math.round(deliveryFee * (Number(coupon.discountValue) / 100));
+  }
+  return Math.min(Number(coupon.discountValue), deliveryFee);
 }
 
 document.addEventListener("click", function(e){
@@ -522,9 +587,18 @@ window.renderCart = function(){
   document.getElementById("cart").innerHTML =
     html || '<div class="cart-empty">ยังไม่มีสินค้าในตะกร้า</div>';
 
+  const estDiscount = getEstimatedCouponDiscount(); // 🆕
+  const discountRow = document.getElementById("sumDiscountRow");
+
   document.getElementById("sumProduct").innerText = total.toLocaleString() + " บาท";
   document.getElementById("sumDelivery").innerText = deliveryFee.toLocaleString() + " บาท";
-  document.getElementById("sumTotal").innerText = (total + deliveryFee).toLocaleString() + " บาท";
+  if(estDiscount > 0){
+    document.getElementById("sumDiscount").innerText = "-" + estDiscount.toLocaleString() + " บาท";
+    if(discountRow) discountRow.style.display = "flex";
+  } else if(discountRow){
+    discountRow.style.display = "none";
+  }
+  document.getElementById("sumTotal").innerText = (total + deliveryFee - estDiscount).toLocaleString() + " บาท";
 
   localStorage.setItem("pd_cart", JSON.stringify(cart));
 };
@@ -618,7 +692,7 @@ async function confirmOrder(){
     return sum + Number(item.price) * (item.qty || 1);
   }, 0);
 
-  let totalAmount = productTotal + deliveryFee;
+  let totalAmount = productTotal + deliveryFee; // ⚠️ ยอดที่โชว์เบื้องต้นเท่านั้น ยอดจริงคำนวณ+ยืนยันจากเซิร์ฟเวอร์เสมอ
 
   try {
     const result = await apiPost('submitOrder', { data: {
@@ -626,15 +700,23 @@ async function confirmOrder(){
       shopName: selectedShopName, shopPhone: selectedShopPhone,
       shopLat: selectedShopLat, shopLng: selectedShopLng,
       items: itemsText, productTotal: productTotal, delivery: deliveryFee,
-      distance: distanceKm.toFixed(2), total: totalAmount, lat: lat, lng: lng
+      distance: distanceKm.toFixed(2), total: totalAmount, lat: lat, lng: lng,
+      couponId: selectedCouponId || "" // 🆕 ส่งแค่ "รหัสคูปอง" เท่านั้น ส่วนลด/ยอดจริงคำนวณฝั่งเซิร์ฟเวอร์
     }});
 
-    alert("ส่งออเดอร์เข้า Telegram แล้ว ✅");
+    // 🆕 ใช้ยอดที่เซิร์ฟเวอร์คำนวณ+ยืนยันกลับมาจริงๆ เสมอ (กันไม่ให้แก้ค่าฝั่ง client แล้วได้ราคาผิด)
+    const finalAmount = result.finalTotal != null ? result.finalTotal : totalAmount;
+    if(result.discountAmount > 0){
+      alert("ส่งออเดอร์เข้า Telegram แล้ว ✅\nใช้คูปองส่วนลดค่าส่งสำเร็จ! ลดไป " + result.discountAmount + " บาท 🎉");
+    } else {
+      alert("ส่งออเดอร์เข้า Telegram แล้ว ✅");
+    }
+    selectedCouponId = ""; // 🆕 เคลียร์คูปองที่เลือกไว้ (ถูกใช้ไปแล้ว)
     localStorage.removeItem("pd_currentShop");
     localStorage.removeItem("pd_cart");
     currentOrderId = result.orderId;
     localStorage.setItem("pd_currentOrderId", currentOrderId); // 🆕 กันรีเฟรชแล้วหลุดการติดตาม
-    showPaymentQR(totalAmount);
+    showPaymentQR(finalAmount);
     document.getElementById("statusBox").style.display = "block";
     document.getElementById("trackEmptyState").style.display = "none";
     document.getElementById("orderIdText").innerHTML = "หมายเลขออเดอร์: " + currentOrderId;
@@ -1258,6 +1340,15 @@ window.addEventListener("load", function(){
   renderMemberBadge();
   loadAdSlider();
   restoreTrackedOrder(); // 🆕 กันรีเฟรชแล้วหลุดการติดตามออเดอร์ที่สั่งไปแล้ว
+
+  // 🆕 กดปุ่ม "ใช้คูปองนี้" มาจากหน้าสมาชิก (member.html) — พาลูกค้าไปเลือกร้าน/สั่งของทันที
+  // (คูปองผูกกับ "ค่าส่ง" ไม่ใช่ร้านใดร้านหนึ่ง เลยยังต้องเลือกร้านเองอยู่ดี แต่ข้ามหน้าแรกไปเลย)
+  if(localStorage.getItem("pd_selectedCouponId")){
+    switchTab("order");
+    setTimeout(function(){
+      alert("🎟️ เลือกคูปองไว้แล้ว! เลือกร้าน สั่งของ แล้วส่วนลดค่าส่งจะเข้าอัตโนมัติตอนไปที่ตะกร้า");
+    }, 300);
+  }
 });
 
 /** 🆕 ถ้ามีหมายเลขออเดอร์ค้างจาก localStorage (เช่น เผลอรีเฟรชหน้าเว็บ) ให้กลับไปติดตามต่อทันที */
