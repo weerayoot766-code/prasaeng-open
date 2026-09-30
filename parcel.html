@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>รับ-ส่งของในพระแสง</title>
+
+<style>
+:root{
+  --rose:#ff2f92;
+  --rose-dark:#d1067c;
+  --rose-light:#fdf0f4;
+  --gold:#c9a44c;
+  --gold-light:#f3e6c8;
+  --blush:#fff5f8;
+  --teal:#0d9488;
+}
+*{ box-sizing:border-box; }
+
+body{
+  font-family:Arial, "Segoe UI", sans-serif;
+  font-size:16px;
+  background:linear-gradient(180deg,var(--blush),#fdf0f4 40%,#fbeaf1);
+  min-height:100vh;
+  padding:18px 14px 60px;
+  color:#3a2130;
+  margin:0;
+}
+
+.wrap{ max-width:560px; margin:0 auto; }
+
+.back-btn{
+  display:inline-block;
+  background:rgba(157,23,77,.08);
+  color:var(--rose);
+  border:none;
+  border-radius:10px;
+  padding:10px 16px;
+  font-size:14px;
+  font-weight:bold;
+  cursor:pointer;
+  margin-bottom:14px;
+}
+
+.hero{
+  background:linear-gradient(135deg,var(--rose),#ff5cad 55%,var(--rose-dark));
+  border-radius:22px;
+  padding:26px 22px;
+  color:#fff;
+  position:relative;
+  overflow:hidden;
+  margin-bottom:18px;
+  box-shadow:0 10px 26px rgba(157,23,77,.25);
+  text-align:center;
+}
+.hero::after{
+  content:"";
+  position:absolute; right:-30px; top:-30px;
+  width:140px; height:140px; border-radius:50%;
+  background:rgba(255,255,255,.08);
+}
+.hero .icon{ font-size:40px; margin-bottom:6px; }
+.hero h1{ margin:0 0 6px; font-size:21px; }
+.hero p{ margin:0; font-size:13px; opacity:.9; }
+
+.card{
+  background:#fff;
+  border-radius:20px;
+  padding:20px;
+  margin-bottom:16px;
+  box-shadow:0 6px 20px rgba(157,23,77,.08);
+  border:1px solid #f6dbe6;
+}
+
+.card-title{
+  display:flex; align-items:center; gap:8px;
+  color:var(--rose-dark); font-size:17px; font-weight:800;
+  margin:0 0 16px;
+}
+.card-title .badge-num{
+  width:26px; height:26px; border-radius:50%;
+  background:var(--rose); color:#fff;
+  font-size:13px; font-weight:900;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+
+label{ display:block; font-size:13px; font-weight:bold; color:#7a3a55; margin:12px 0 6px; }
+label:first-child{ margin-top:0; }
+
+input, textarea, select{
+  width:100%; padding:13px 14px; border-radius:12px;
+  border:1.5px solid #f0cfdd; font-size:15px; background:#fffafc;
+  color:#3a2130; font-family:inherit;
+}
+input:focus, textarea:focus, select:focus{ outline:none; border-color:var(--rose); }
+textarea{ resize:vertical; min-height:56px; }
+
+.pin-row{
+  display:flex; gap:10px; align-items:center; margin-top:12px;
+}
+.pin-btn{
+  flex-shrink:0;
+  width:auto;
+  white-space:nowrap;
+  background:#fff;
+  color:var(--rose);
+  border:1.5px solid var(--rose);
+  border-radius:12px;
+  padding:12px 14px;
+  font-size:13.5px;
+  font-weight:bold;
+  cursor:pointer;
+}
+.pin-status{
+  flex:1;
+  font-size:12.5px;
+  color:#888;
+  background:var(--rose-light);
+  border-radius:10px;
+  padding:10px 12px;
+}
+.pin-status.ok{ color:#1a9c52; background:#e6f9ee; font-weight:bold; }
+
+/* ---------- item rows ---------- */
+.item-row{
+  border:1.5px dashed #f0cfdd;
+  border-radius:14px;
+  padding:14px;
+  margin-bottom:12px;
+  background:#fffafc;
+  position:relative;
+}
+.item-row-head{
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:4px;
+}
+.item-row-head .item-label{ font-size:13px; font-weight:800; color:#a3134f; }
+.item-remove-btn{
+  width:26px; height:26px; padding:0;
+  border-radius:8px; background:#fdeaea; color:#d63333;
+  border:none; font-size:14px; cursor:pointer; margin:0;
+}
+.item-grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;
+}
+.add-item-btn{
+  background:#fff; color:var(--rose); border:1.5px dashed var(--rose);
+  border-radius:12px; padding:12px; font-size:14px; font-weight:bold; cursor:pointer;
+}
+
+/* ---------- photo upload ---------- */
+.photo-upload-row{
+  margin-top:10px;
+  display:flex; align-items:center; gap:10px;
+}
+.photo-thumb{
+  width:56px; height:56px; border-radius:12px; object-fit:cover;
+  border:1.5px solid #f0cfdd; flex-shrink:0; background:#fff;
+}
+.photo-thumb-empty{
+  width:56px; height:56px; border-radius:12px;
+  border:1.5px dashed #f0cfdd; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; color:#d9a9c0; background:#fff;
+}
+.photo-input-wrap{ flex:1; min-width:0; }
+.photo-input-wrap input[type="file"]{
+  width:100%; padding:9px 10px; font-size:12.5px;
+  border:1.5px dashed #f0cfdd; border-radius:12px; background:#fffafc; cursor:pointer;
+}
+.photo-hint{ font-size:11px; color:#999; margin-top:4px; }
+
+/* ---------- distance + price summary ---------- */
+.distance-card{
+  background:#fff5fa;
+  border:1.5px solid #ffd0e6;
+  border-radius:16px;
+  padding:14px 16px;
+  margin-bottom:16px;
+  font-size:13.5px;
+  color:#555;
+  text-align:center;
+  font-weight:700;
+}
+.distance-card.pending{ color:#a08340; background:var(--gold-light); border-color:#e9d5a0; }
+.distance-card.warn{ color:#b3184f; background:#fdeaf1; border-color:#f7bcd3; }
+
+.price-card{
+  background:linear-gradient(180deg,#fffaf3,#ffffff);
+  border:1px solid #f0dfc0;
+  border-radius:20px;
+  padding:20px;
+  margin-bottom:18px;
+  box-shadow:0 10px 26px rgba(180,140,60,.12);
+}
+.price-row{
+  display:flex; justify-content:space-between;
+  font-size:13.5px; color:#7a6b4a; padding:5px 0;
+}
+.price-total-row{
+  display:flex; justify-content:space-between; align-items:center;
+  margin-top:10px; padding-top:14px;
+  border-top:1px dashed #d9c592;
+  font-size:16px; font-weight:900; color:#7a4a00;
+}
+.price-total-row span:last-child{ color:var(--rose); font-size:26px; }
+.price-empty{ text-align:center; color:#b8a276; font-size:13.5px; padding:6px 0; }
+
+button.confirm-btn{
+  width:100%;
+  border:none; border-radius:14px;
+  padding:16px; font-size:17px; font-weight:800; letter-spacing:.02em;
+  cursor:pointer;
+  background:linear-gradient(135deg,#ff4fa3,#c2185b);
+  color:#fff;
+  box-shadow:0 8px 22px rgba(255,47,146,.35);
+}
+button.confirm-btn:disabled{
+  background:#ddd; box-shadow:none; cursor:not-allowed; color:#999;
+}
+
+.rate-note{
+  font-size:12px; color:#a08340; background:var(--gold-light);
+  border-radius:10px; padding:10px 12px; margin-bottom:16px; line-height:1.6;
+}
+
+/* ---------- QR payment screen ---------- */
+.qr-box{ text-align:center; padding:6px; }
+.qr-box img{ width:220px; height:220px; border-radius:16px; border:1.5px solid #f0dfc0; margin:10px auto; display:block; }
+.qr-amount{ font-size:22px; font-weight:900; color:var(--rose); margin:8px 0 4px; }
+.qr-hint{ font-size:12.5px; color:#888; margin-bottom:18px; }
+
+/* ---------- pending/success screen ---------- */
+.success-box{ text-align:center; padding:20px 6px; }
+.success-box .icon{ font-size:56px; margin-bottom:10px; }
+.success-box h2{ color:#1a9c52; margin:0 0 6px; }
+.success-box.pending h2{ color:#c98a12; }
+.success-box .order-id{ font-size:14px; color:#888; margin-bottom:18px; }
+.receipt{
+  text-align:left; background:#fbeef3; border-radius:14px; padding:16px;
+  font-size:13.5px; color:#6b4457; line-height:1.8; margin-bottom:18px;
+}
+.receipt b{ color:#3a2130; }
+.receipt-item-row{
+  display:flex; align-items:center; gap:10px;
+  padding:8px 0; border-bottom:1px dashed #f1c9dc;
+}
+.receipt-item-row:last-child{ border-bottom:none; }
+.receipt-item-text{ flex:1; min-width:0; text-align:left; }
+.status-pill{
+  display:inline-block; background:#fff3d6; color:#a3720a;
+  font-size:12.5px; font-weight:800; padding:6px 14px; border-radius:20px;
+  margin-bottom:14px;
+}
+
+@media(max-width:420px){
+  .item-grid{ grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <button class="back-btn" onclick="goHome()">← กลับหน้าแรก</button>
+  <div id="app"></div>
+</div>
+
+<script src="api.js"></script>
+<script>
+
+function escapeHtml(text){
+  return String(text || "")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+function goHome(){
+  window.location.href = "index.html";
+}
+
+/* ---------- เรทราคาตามระยะทาง (แก้ตรงนี้ที่เดียว) ---------- */
+const DISTANCE_TIERS = [
+  { max: 5,  price: 40, label: "0-5 กม." },
+  { max: 15, price: 60, label: "5-15 กม." }
+];
+const promptPayId = "0932945790"; // 🆕 เบอร์พร้อมเพย์รับเงินค่าบริการรับ-ส่งของ (แก้ได้ตามจริง)
+const shopPhoneForContact = "0932945790"; // เบอร์ร้านให้ลูกค้าติดต่อกรณีเกินระยะบริการ
+
+const SIZE_OPTIONS = ["เล็ก (ถุง/กล่องเล็ก)", "กลาง (ลังทั่วไป)", "ใหญ่ (ลังใหญ่/เฟอร์นิเจอร์ชิ้นเล็ก)"];
+
+let items = [ { description:"", size:SIZE_OPTIONS[1], qty:1, photoDataUrl:"", photoBase64:"" } ];
+let origin = { lat:"", lng:"" };
+let dest = { lat:"", lng:"" };
+
+function calculateDistance(lat1, lon1, lat2, lon2){
+  const R = 6371;
+  const dLat = (lat2-lat1) * Math.PI / 180;
+  const dLon = (lon2-lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+            Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180) *
+            Math.sin(dLon/2)*Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function getDistanceKm(){
+  if(!origin.lat || !dest.lat) return null;
+  return calculateDistance(origin.lat, origin.lng, dest.lat, dest.lng);
+}
+
+function getDistanceTier(distanceKm){
+  for(let i = 0; i < DISTANCE_TIERS.length; i++){
+    if(distanceKm <= DISTANCE_TIERS[i].max) return DISTANCE_TIERS[i];
+  }
+  return null; // เกินระยะบริการ (>15 กม.)
+}
+
+function totalBoxQty(){
+  return items.reduce(function(sum, i){ return sum + (Number(i.qty) || 0); }, 0);
+}
+
+function render(){
+  const app = document.getElementById("app");
+
+  let itemsHtml = "";
+  items.forEach(function(item, idx){
+    itemsHtml += `
+      <div class="item-row">
+        <div class="item-row-head">
+          <span class="item-label">📦 ลังที่ ${idx + 1}</span>
+          ${items.length > 1 ? '<button class="item-remove-btn" onclick="removeItem(' + idx + ')">✕</button>' : ''}
+        </div>
+        <label>รายละเอียดของที่จะส่ง</label>
+        <input value="${escapeHtml(item.description)}" placeholder="เช่น เสื้อผ้า, ของแห้ง, อะไหล่รถ"
+          oninput="updateItem(${idx}, 'description', this.value)">
+        <div class="item-grid">
+          <div>
+            <label>ขนาด</label>
+            <select onchange="updateItem(${idx}, 'size', this.value)">
+              ${SIZE_OPTIONS.map(function(s){
+                return '<option ' + (s === item.size ? 'selected' : '') + '>' + s + '</option>';
+              }).join("")}
+            </select>
+          </div>
+          <div>
+            <label>จำนวน (ลัง)</label>
+            <input type="number" min="1" value="${item.qty}"
+              oninput="updateItem(${idx}, 'qty', this.value)">
+          </div>
+        </div>
+        <label>📷 รูปภาพพัสดุที่จะส่ง <span style="color:#d63333;">*จำเป็น</span></label>
+        <div class="photo-upload-row">
+          ${item.photoDataUrl
+            ? '<img class="photo-thumb" src="' + item.photoDataUrl + '">'
+            : '<div class="photo-thumb-empty">📦</div>'}
+          <div class="photo-input-wrap">
+            <input type="file" accept="image/*" onchange="handlePhotoSelected(${idx}, this.files[0])">
+            <div class="photo-hint">ต้องแนบรูปทุกลัง ให้ไรเดอร์เช็คของถูกต้องก่อนส่ง</div>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  app.innerHTML = `
+    <div class="hero">
+      <div class="icon">📦🛵</div>
+      <h1>บริการรับ-ส่งของในพระแสง</h1>
+      <p>ฝากส่งของ เอกสาร พัสดุ ภายในเขตพระแสง รวดเร็ว ปลอดภัย</p>
+    </div>
+
+    <div class="rate-note">
+      💰 <b>อัตราค่าบริการ:</b> คิดตามระยะทางจริงระหว่างต้นทาง-ปลายทาง — 0-5 กม. ลังละ 40 บาท, 5-15 กม. ลังละ 60 บาท (ปักหมุดทั้งสองจุดให้ครบ ระบบจะคำนวณระยะทางและราคาให้อัตโนมัติ)
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="badge-num">1</span> ต้นทาง (ผู้ส่ง)</div>
+      <label>👤 ชื่อผู้ส่งของ</label>
+      <input id="senderName" placeholder="ชื่อ-นามสกุล">
+      <label>📱 เบอร์โทรผู้ส่ง</label>
+      <input id="senderPhone" placeholder="เช่น 0812345678">
+      <label>📍 ที่อยู่ต้นทาง</label>
+      <textarea id="originAddress" placeholder="บ้านเลขที่ / หมู่บ้าน / ตำบล / จุดสังเกต"></textarea>
+      <div class="pin-row">
+        <button type="button" class="pin-btn" onclick="pinLocation('origin')">📍 ปักหมุดตำแหน่ง</button>
+        <div class="pin-status ${origin.lat ? 'ok' : ''}" id="originPinStatus">
+          ${origin.lat ? 'ปักหมุดแล้ว ✅' : 'ยังไม่ได้ปักหมุด'}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="badge-num">2</span> รายละเอียดของที่จะส่ง</div>
+      ${itemsHtml}
+      <button type="button" class="add-item-btn" onclick="addItem()">+ เพิ่มอีกลัง</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="badge-num">3</span> ปลายทาง (ผู้รับ)</div>
+      <label>👤 ชื่อผู้รับของ</label>
+      <input id="receiverName" placeholder="ชื่อ-นามสกุล">
+      <label>📱 เบอร์โทรผู้รับ</label>
+      <input id="receiverPhone" placeholder="เช่น 0812345678">
+      <label>📍 ที่อยู่ปลายทาง</label>
+      <textarea id="destAddress" placeholder="บ้านเลขที่ / หมู่บ้าน / ตำบล / จุดสังเกต"></textarea>
+      <div class="pin-row">
+        <button type="button" class="pin-btn" onclick="pinLocation('dest')">📍 ปักหมุดตำแหน่ง</button>
+        <div class="pin-status ${dest.lat ? 'ok' : ''}" id="destPinStatus">
+          ${dest.lat ? 'ปักหมุดแล้ว ✅' : 'ยังไม่ได้ปักหมุด'}
+        </div>
+      </div>
+    </div>
+
+    ${renderDistanceCard()}
+    ${renderPriceSummary()}
+
+    <button class="confirm-btn" id="confirmBtn" onclick="confirmParcelOrder()" ${canConfirm() ? '' : 'disabled'}>
+      ✅ ยืนยัน & ชำระเงิน
+    </button>
+  `;
+
+  restoreFieldValues();
+}
+
+function renderDistanceCard(){
+  const distanceKm = getDistanceKm();
+  if(distanceKm === null){
+    return '<div class="distance-card pending">📏 ปักหมุดต้นทางและปลายทางให้ครบ เพื่อคำนวณระยะทางและราคาอัตโนมัติ</div>';
+  }
+  const tier = getDistanceTier(distanceKm);
+  if(!tier){
+    return '<div class="distance-card warn">⚠️ ระยะทางประมาณ ' + distanceKm.toFixed(2) + ' กม. — เกินระยะบริการมาตรฐาน (>15 กม.)<br>กรุณาโทรติดต่อร้านโดยตรงที่ ' + shopPhoneForContact + '</div>';
+  }
+  return '<div class="distance-card">📏 ระยะทางประมาณ ' + distanceKm.toFixed(2) + ' กม. → เรท ' + tier.label + ' (' + tier.price + ' บาท/ลัง)</div>';
+}
+
+function renderPriceSummary(){
+  const distanceKm = getDistanceKm();
+  const tier = distanceKm !== null ? getDistanceTier(distanceKm) : null;
+  const boxes = totalBoxQty();
+
+  if(!tier || boxes <= 0){
+    return `
+      <div class="price-card">
+        <div class="card-title" style="color:#7a5a12;">🧾 สรุปค่าบริการ</div>
+        <div class="price-empty">ปักหมุดครบ + ระบุจำนวนลัง เพื่อดูราคา</div>
+        <div class="price-total-row"><span>รวมทั้งหมด</span><span>0 ฿</span></div>
+      </div>
+    `;
+  }
+
+  const total = tier.price * boxes;
+  return `
+    <div class="price-card">
+      <div class="card-title" style="color:#7a5a12;">🧾 สรุปค่าบริการ</div>
+      <div class="price-row"><span>${tier.label} × ${boxes} ลัง (${tier.price} บาท/ลัง)</span><span>${total.toLocaleString()} บาท</span></div>
+      <div class="price-total-row"><span>รวมทั้งหมด</span><span>${total.toLocaleString()} ฿</span></div>
+    </div>
+  `;
+}
+
+function canConfirm(){
+  const distanceKm = getDistanceKm();
+  const tier = distanceKm !== null ? getDistanceTier(distanceKm) : null;
+  return !!tier && totalBoxQty() > 0;
+}
+
+function refreshDynamicParts(){
+  const distanceBlock = document.querySelector(".distance-card");
+  if(distanceBlock){ distanceBlock.outerHTML = renderDistanceCard(); }
+  const priceBlock = document.querySelector(".price-card");
+  if(priceBlock){ priceBlock.outerHTML = renderPriceSummary(); }
+  const btn = document.getElementById("confirmBtn");
+  if(btn){ btn.disabled = !canConfirm(); }
+}
+
+function restoreFieldValues(){
+  const ids = ["senderName","senderPhone","originAddress","receiverName","receiverPhone","destAddress"];
+  ids.forEach(function(id){
+    const el = document.getElementById(id);
+    if(el && window._fieldCache && window._fieldCache[id] !== undefined){
+      el.value = window._fieldCache[id];
+    }
+    if(el){
+      el.addEventListener("input", function(){
+        window._fieldCache = window._fieldCache || {};
+        window._fieldCache[id] = el.value;
+      });
+    }
+  });
+}
+
+function cacheFields(){
+  const ids = ["senderName","senderPhone","originAddress","receiverName","receiverPhone","destAddress"];
+  window._fieldCache = window._fieldCache || {};
+  ids.forEach(function(id){
+    const el = document.getElementById(id);
+    if(el){ window._fieldCache[id] = el.value; }
+  });
+}
+
+function addItem(){
+  cacheFields();
+  items.push({ description:"", size:SIZE_OPTIONS[1], qty:1, photoDataUrl:"", photoBase64:"" });
+  render();
+}
+
+function handlePhotoSelected(idx, file){
+  if(!file) return;
+  cacheFields();
+
+  // บีบอัดรูปก่อนเก็บไว้ (แบบเดียวกับรูปสินค้า/สลิปในระบบนี้) กันไฟล์ใหญ่จากกล้องมือถือ
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const canvas = document.createElement("canvas");
+      const maxWidth = 600;
+      const scale = Math.min(1, maxWidth / img.width);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+
+      items[idx].photoDataUrl = dataUrl;
+      items[idx].photoBase64 = dataUrl.split(",")[1];
+      render();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeItem(idx){
+  cacheFields();
+  items.splice(idx, 1);
+  render();
+}
+
+function updateItem(idx, field, value){
+  items[idx][field] = value;
+  cacheFields();
+  refreshDynamicParts();
+}
+
+function pinLocation(which){
+  if(!navigator.geolocation){
+    alert("อุปกรณ์นี้ไม่รองรับ GPS");
+    return;
+  }
+  const statusEl = document.getElementById(which + "PinStatus");
+  statusEl.innerHTML = "📡 กำลังค้นหาตำแหน่ง...";
+
+  navigator.geolocation.getCurrentPosition(
+    function(position){
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      if(which === "origin"){ origin = { lat, lng }; }
+      else { dest = { lat, lng }; }
+      statusEl.classList.add("ok");
+      statusEl.innerHTML = "ปักหมุดแล้ว ✅ (" + lat.toFixed(5) + ", " + lng.toFixed(5) + ")";
+      refreshDynamicParts();
+    },
+    function(){
+      statusEl.innerHTML = "ปักหมุดไม่สำเร็จ กรุณาเปิดสิทธิ์ตำแหน่ง GPS";
+      alert("กรุณาเปิดสิทธิ์ตำแหน่ง GPS ก่อน");
+    }
+  );
+}
+
+let currentParcelOrderId = "";
+let pendingParcelOrder = null;
+let slipDataUrl = "";
+
+function confirmParcelOrder(){
+  const senderName = document.getElementById("senderName").value.trim();
+  const senderPhone = document.getElementById("senderPhone").value.trim();
+  const originAddress = document.getElementById("originAddress").value.trim();
+  const receiverName = document.getElementById("receiverName").value.trim();
+  const receiverPhone = document.getElementById("receiverPhone").value.trim();
+  const destAddress = document.getElementById("destAddress").value.trim();
+
+  if(!senderName || !senderPhone || !originAddress){
+    alert("กรุณากรอกข้อมูลต้นทางให้ครบ (ชื่อ, เบอร์โทร, ที่อยู่)");
+    return;
+  }
+  if(!receiverName || !receiverPhone || !destAddress){
+    alert("กรุณากรอกข้อมูลปลายทางให้ครบ (ชื่อ, เบอร์โทร, ที่อยู่)");
+    return;
+  }
+  if(!canConfirm()){
+    alert("กรุณาปักหมุดต้นทาง-ปลายทางให้ครบ และระบุจำนวนลังอย่างน้อย 1 ลัง (ระยะทางต้องไม่เกิน 15 กม.)");
+    return;
+  }
+
+  const activeItems = items.filter(function(i){ return Number(i.qty) > 0; });
+  const missingPhotoIdx = activeItems.findIndex(function(i){ return !i.photoBase64; });
+  if(missingPhotoIdx !== -1){
+    alert("กรุณาแนบรูปภาพพัสดุของลังที่ " + (missingPhotoIdx + 1) + " ก่อนยืนยัน (จำเป็นทุกลัง)");
+    return;
+  }
+
+  cacheFields();
+  const distanceKm = getDistanceKm();
+  const tier = getDistanceTier(distanceKm);
+  const boxes = totalBoxQty();
+  const total = tier.price * boxes;
+
+  pendingParcelOrder = {
+    senderName, senderPhone, originAddress,
+    receiverName, receiverPhone, destAddress,
+    distanceKm, tier, boxes, total,
+    items: items.filter(function(i){ return Number(i.qty) > 0; }).map(function(i){
+      return { description:i.description, size:i.size, qty:i.qty, photoDataUrl:i.photoDataUrl, photoBase64:i.photoBase64 };
+    })
+  };
+
+  showQrPayment(total, pendingParcelOrder);
+}
+
+function showQrPayment(amount, orderData){
+  const qrUrl = "https://promptpay.io/" + promptPayId + "/" + amount + ".png";
+  slipDataUrl = "";
+  document.getElementById("app").innerHTML = `
+    <div class="card qr-box">
+      <h2 style="color:var(--rose-dark);margin-top:0;">💳 สแกนจ่ายค่าบริการ</h2>
+      <img src="${qrUrl}" alt="QR พร้อมเพย์">
+      <div class="qr-amount">${amount.toLocaleString()} บาท</div>
+      <div class="qr-hint">ระยะทางประมาณ ${orderData.distanceKm.toFixed(2)} กม. · ${orderData.boxes} ลัง (${orderData.tier.label})</div>
+
+      <label style="text-align:left;">📎 แนบสลิปโอนเงิน <span style="color:#d63333;">*จำเป็น</span></label>
+      <div class="photo-upload-row" style="justify-content:center;">
+        <div class="photo-thumb-empty" id="slipThumbEmpty">🧾</div>
+        <img class="photo-thumb" id="slipThumbImg" style="display:none;">
+        <div class="photo-input-wrap">
+          <input type="file" accept="image/*" onchange="handleSlipSelected(this.files[0])">
+          <div class="photo-hint">ถ่ายหน้าจอ/ภาพสลิปหลังโอนเงินแล้วแนบตรงนี้</div>
+        </div>
+      </div>
+
+      <button class="confirm-btn" id="paidBtn" onclick="markParcelPaid()">✅ แจ้งชำระเงินแล้ว</button>
+    </div>
+  `;
+}
+
+function handleSlipSelected(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const canvas = document.createElement("canvas");
+      const maxWidth = 800;
+      const scale = Math.min(1, maxWidth / img.width);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      slipDataUrl = canvas.toDataURL("image/jpeg", 0.75);
+
+      document.getElementById("slipThumbEmpty").style.display = "none";
+      const imgEl = document.getElementById("slipThumbImg");
+      imgEl.src = slipDataUrl;
+      imgEl.style.display = "block";
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function markParcelPaid(){
+  if(!slipDataUrl){
+    alert("กรุณาแนบรูปสลิปโอนเงินก่อนแจ้งชำระเงิน");
+    return;
+  }
+
+  const orderData = pendingParcelOrder;
+  const btn = document.getElementById("paidBtn");
+  btn.disabled = true;
+  btn.textContent = "⏳ กำลังส่งข้อมูล...";
+
+  try {
+    const result = await apiPost('createParcelOrder', { data: {
+      senderName: orderData.senderName,
+      senderPhone: orderData.senderPhone,
+      originAddress: orderData.originAddress,
+      originLat: origin.lat,
+      originLng: origin.lng,
+      receiverName: orderData.receiverName,
+      receiverPhone: orderData.receiverPhone,
+      destAddress: orderData.destAddress,
+      destLat: dest.lat,
+      destLng: dest.lng,
+      distanceKm: orderData.distanceKm,
+      boxes: orderData.boxes,
+      total: orderData.total,
+      items: orderData.items.map(function(i){
+        return { description: i.description, size: i.size, qty: i.qty, photoDataUrl: i.photoDataUrl };
+      }),
+      slipDataUrl: slipDataUrl
+    }});
+
+    if(!result || !result.success){
+      alert("ส่งคำขอไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+      btn.disabled = false;
+      btn.textContent = "✅ แจ้งชำระเงินแล้ว";
+      return;
+    }
+
+    currentParcelOrderId = result.parcelId;
+    renderParcelPendingScreen(orderData);
+  } catch(error){
+    alert("ส่งคำขอไม่สำเร็จ: " + error.message + "\n\nลองเช็คสัญญาณเน็ตแล้วกดส่งใหม่อีกครั้งได้เลยครับ");
+    btn.disabled = false;
+    btn.textContent = "✅ แจ้งชำระเงินแล้ว";
+  }
+}
+
+function renderParcelPendingScreen(orderData){
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("th-TH");
+  const timeStr = now.toLocaleTimeString("th-TH", { hour:"2-digit", minute:"2-digit" });
+
+  let itemsHtml = "";
+  orderData.items.forEach(function(i, idx){
+    itemsHtml += '<div class="receipt-item-row">';
+    itemsHtml += i.photoDataUrl
+      ? '<img class="photo-thumb" src="' + i.photoDataUrl + '">'
+      : '<div class="photo-thumb-empty">📦</div>';
+    itemsHtml += '<div class="receipt-item-text">';
+    itemsHtml += '<b>ลังที่ ' + (idx + 1) + ':</b> ' + escapeHtml(i.description || "ไม่ระบุรายละเอียด") + '<br>';
+    itemsHtml += '<span style="font-size:12px;color:#8a6a79;">' + escapeHtml(i.size) + ' × ' + i.qty + ' ลัง</span>';
+    itemsHtml += '</div></div>';
+  });
+
+  document.getElementById("app").innerHTML = `
+    <div class="card success-box pending">
+      <div class="icon">⏳</div>
+      <h2>ส่งคำขอให้แอดมินอนุมัติแล้ว</h2>
+      <div class="status-pill">รอตรวจสอบสลิป → รอไรเดอร์กดรับงาน</div>
+      <div class="order-id">หมายเลขออเดอร์ #${escapeHtml(currentParcelOrderId)} · ${escapeHtml(dateStr)} ${escapeHtml(timeStr)}</div>
+
+      <div class="receipt">
+        <b>📍 ต้นทาง:</b> ${escapeHtml(orderData.senderName)} (${escapeHtml(orderData.senderPhone)})<br>
+        ${escapeHtml(orderData.originAddress)}<br><br>
+
+        <b>🏁 ปลายทาง:</b> ${escapeHtml(orderData.receiverName)} (${escapeHtml(orderData.receiverPhone)})<br>
+        ${escapeHtml(orderData.destAddress)}<br><br>
+
+        <b>📏 ระยะทาง:</b> ${orderData.distanceKm.toFixed(2)} กม. (${orderData.tier.label})<br>
+        <b>💰 ยอดชำระ:</b> ${orderData.total.toLocaleString()} บาท
+      </div>
+
+      <div class="receipt" style="padding-top:6px;">
+        ${itemsHtml}
+      </div>
+
+      <p style="font-size:12.5px;color:#a3134f;margin-bottom:18px;">
+        เมื่อแอดมินตรวจสลิปแล้ว ระบบจะแจ้งไรเดอร์ให้กดรับงานนี้ทันที เหมือนออเดอร์ส่งอาหาร
+      </p>
+
+      <button class="confirm-btn" onclick="goHome()">กลับหน้าแรก</button>
+    </div>
+  `;
+}
+
+render();
+
+</script>
+</body>
+</html>
