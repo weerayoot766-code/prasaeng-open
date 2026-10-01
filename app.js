@@ -331,12 +331,93 @@ function openSearchProduct(index){
   openQtyModal(index);
 }
 
+// 🆕 ลำดับ+ไอคอนของหมวดร้านค้า อ้างอิงจากตัวเลือกจริงใน dropdown "shopCategory" ตอนร้านสมัคร
+const CATEGORY_DISPLAY_ORDER = [
+  { key: "อาหาร", icon: "🍗" },
+  { key: "กาแฟ/เครื่องดื่ม", icon: "☕" },
+  { key: "อาหารสด", icon: "🥬" },
+  { key: "ของชำ", icon: "🛒" },
+  { key: "ร้านยา", icon: "💊" },
+  { key: "เบเกอรี่", icon: "🥐" },
+  { key: "ผลไม้", icon: "🍑" },
+  { key: "เสื้อผ้า", icon: "👗" },
+  { key: "ของใช้ในบ้าน", icon: "🏠" },
+  { key: "เครื่องสำอาง", icon: "💄" },
+  { key: "อุปกรณ์ไอที", icon: "💻" },
+  { key: "อุปกรณ์การเรียน", icon: "✏️" },
+  { key: "อื่นๆ", icon: "🧩" }
+];
+
+let lastOrderedShopsCache = []; // 🆕 เก็บไว้เผื่อกด "ดูทั้งหมด" ของหมวด แล้วกดกลับมาหน้าเดิม
+
+/** 🆕 สร้าง tile ร้านค้า 1 อัน ใช้ร่วมกันทั้งแถว "เคยสั่ง" / แถวตามหมวด / กริด "ดูทั้งหมด" */
+function buildShopTileHtml(shopName){
+  const shopProducts = window.productsData.filter(function(p){
+    return String(p.shop || "ไม่ระบุร้าน") === shopName;
+  });
+
+  const storeInfo = (window.storesData || []).find(function(s){ return s.name === shopName; });
+
+  let shopImage = "";
+  if(storeInfo && storeInfo.logo){
+    shopImage = storeInfo.logo;
+  } else {
+    for(let i = 0; i < shopProducts.length; i++){
+      if(shopProducts[i].image){ shopImage = shopProducts[i].image; break; }
+    }
+  }
+
+  const isOpen = !storeInfo || storeInfo.isOpen !== false;
+  const clickAction = isOpen
+    ? "showProductsByShop('" + escapeHtml(shopName) + "')"
+    : "alert('ร้านนี้ปิดให้บริการชั่วคราวครับ')";
+
+  let html = '<div class="shop-tile' + (isOpen ? '' : ' shop-closed') + '" onclick="' + clickAction + '">';
+  if(shopImage !== ""){
+    html += '<img class="shop-tile-img" src="' + escapeHtml(shopImage) + '">';
+  } else {
+    html += '<div class="shop-tile-icon">🏪</div>';
+  }
+  html += '<span class="shop-tile-name">' + escapeHtml(shopName) + '</span>';
+  if(!isOpen){ html += '<span class="shop-closed-badge">ปิดอยู่</span>'; }
+  html += '</div>';
+  return html;
+}
+
+/** 🆕 จัดกลุ่มรายชื่อร้าน (ที่มีสินค้าอยู่จริง) ตามหมวดจริงจากชีท เรียงตามลำดับมาตรฐาน */
+function groupShopsByCategory(shops){
+  const byCategory = {};
+  shops.forEach(function(shop){
+    const storeInfo = (window.storesData || []).find(function(s){ return s.name === shop; });
+    let category = storeInfo && storeInfo.category ? String(storeInfo.category).trim() : "";
+    if(category === ""){ category = "อื่นๆ"; }
+    if(!byCategory[category]){ byCategory[category] = []; }
+    byCategory[category].push(shop);
+  });
+
+  const ordered = [];
+  CATEGORY_DISPLAY_ORDER.forEach(function(c){
+    if(byCategory[c.key] && byCategory[c.key].length > 0){
+      ordered.push({ key: c.key, icon: c.icon, shops: byCategory[c.key] });
+      delete byCategory[c.key];
+    }
+  });
+  // หมวดอื่นที่ไม่ตรงกับลิสต์มาตรฐาน (เผื่อแอดมินพิมพ์เพิ่มเอง) ต่อท้ายให้ด้วย
+  Object.keys(byCategory).forEach(function(key){
+    ordered.push({ key: key, icon: "🧩", shops: byCategory[key] });
+  });
+
+  return ordered;
+}
+
 function renderStoreHomeHtml(orderedShops){
   let shops = [];
   window.productsData.forEach(function(product){
     const shop = String(product.shop || "ไม่ระบุร้าน");
     if(!shops.includes(shop)){ shops.push(shop); }
   });
+
+  lastOrderedShopsCache = orderedShops || [];
 
   let html = "";
 
@@ -347,61 +428,58 @@ function renderStoreHomeHtml(orderedShops){
   if(validOrderedShops.length > 0){
     html += '<h2>🕑 ร้านที่คุณเคยสั่ง</h2><div class="shop-scroll-row">';
     validOrderedShops.forEach(function(s){
-      const storeInfo = (window.storesData || []).find(function(st){ return st.name === s.name; });
-      const isOpen = !storeInfo || storeInfo.isOpen !== false;
-      const clickAction = isOpen
-        ? "showProductsByShop('" + escapeHtml(s.name) + "')"
-        : "alert('ร้านนี้ปิดให้บริการชั่วคราวครับ')";
-
-      html += '<div class="shop-tile' + (isOpen ? '' : ' shop-closed') + '" onclick="' + clickAction + '">';
-      if(s.logo){
-        html += '<img class="shop-tile-img" src="' + escapeHtml(s.logo) + '">';
-      } else {
-        html += '<div class="shop-tile-icon">🏪</div>';
-      }
-      html += '<span class="shop-tile-name">' + escapeHtml(s.name) + '</span>';
-      if(!isOpen){ html += '<span class="shop-closed-badge">ปิดอยู่</span>'; }
-      html += '</div>';
+      html += buildShopTileHtml(s.name);
     });
     html += '</div>';
   }
 
-  html += '<h2>เลือกร้านโดยไม่เป็นสมาชิก</h2><div class="shop-grid">';
+  const categoryGroups = groupShopsByCategory(shops);
 
-  shops.forEach(function(shop){
-    const shopProducts = window.productsData.filter(function(p){
-      return String(p.shop || "ไม่ระบุร้าน") === shop;
-    });
+  if(categoryGroups.length === 0){
+    document.getElementById("productList").innerHTML = html || "ยังไม่มีร้านค้า";
+    return;
+  }
 
-    let shopImage = "";
-    const storeInfo = (window.storesData || []).find(function(s){ return s.name === shop; });
-    if(storeInfo && storeInfo.logo){
-      shopImage = storeInfo.logo;
-    } else {
-      for(let i = 0; i < shopProducts.length; i++){
-        if(shopProducts[i].image){ shopImage = shopProducts[i].image; break; }
-      }
-    }
+  // ---------- แถวปุ่มหมวด (กดแล้วเลื่อนไปหาหมวดนั้น) ----------
+  html += '<div class="category-pill-row">';
+  categoryGroups.forEach(function(cat, idx){
+    html += '<a class="category-pill" onclick="document.getElementById(\'cat-sec-' + idx + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'});">'
+      + '<span>' + cat.icon + '</span><span>' + escapeHtml(cat.key) + '</span></a>';
+  });
+  html += '</div>';
 
-    const isOpen = !storeInfo || storeInfo.isOpen !== false;
-    const clickAction = isOpen
-      ? "showProductsByShop('" + escapeHtml(shop) + "')"
-      : "alert('ร้านนี้ปิดให้บริการชั่วคราวครับ')";
-
-    html += '<div class="shop-tile' + (isOpen ? '' : ' shop-closed') + '" onclick="' + clickAction + '">';
-    if(shopImage !== ""){
-      html += '<img class="shop-tile-img" src="' + escapeHtml(shopImage) + '">';
-    } else {
-      html += '<div class="shop-tile-icon">🏪</div>';
-    }
-    html += '<span class="shop-tile-name">' + escapeHtml(shop) + '</span>';
-    if(!isOpen){ html += '<span class="shop-closed-badge">ปิดอยู่</span>'; }
+  // ---------- หมวดละแถว เลื่อนแนวนอน ----------
+  categoryGroups.forEach(function(cat, idx){
+    html += '<div id="cat-sec-' + idx + '" class="category-section">';
+    html += '<div class="category-section-head">';
+    html += '<div class="category-section-icon">' + cat.icon + '</div>';
+    html += '<div class="category-section-title"><h3>' + escapeHtml(cat.key) + '</h3><span>' + cat.shops.length + ' ร้าน</span></div>';
+    html += '<a class="category-seeall" onclick="showCategoryAllShops(' + idx + ')">ดูทั้งหมด <span>›</span></a>';
     html += '</div>';
+    html += '<div class="shop-scroll-row">';
+    cat.shops.forEach(function(shop){ html += buildShopTileHtml(shop); });
+    html += '</div></div>';
   });
 
-  html += "</div>";
+  document.getElementById("productList").innerHTML = html;
 
-  document.getElementById("productList").innerHTML = html || "ยังไม่มีร้านค้า";
+  // เก็บหมวดไว้ใช้ตอนกด "ดูทั้งหมด"
+  window._lastCategoryGroups = categoryGroups;
+}
+
+/** 🆕 กด "ดูทั้งหมด" ของหมวด — โชว์กริดร้านทั้งหมดของหมวดนั้น พร้อมปุ่มกลับ */
+function showCategoryAllShops(idx){
+  const cat = (window._lastCategoryGroups || [])[idx];
+  if(!cat) return;
+
+  let html = '<a class="category-back-btn" onclick="renderStoreHomeHtml(lastOrderedShopsCache)">‹ กลับ</a>';
+  html += '<h2>' + cat.icon + ' ' + escapeHtml(cat.key) + '</h2>';
+  html += '<div class="shop-grid">';
+  cat.shops.forEach(function(shop){ html += buildShopTileHtml(shop); });
+  html += '</div>';
+
+  document.getElementById("productList").innerHTML = html;
+  window.scrollTo(0, 0);
 }
 
 function renderHomeShopGrid(){
