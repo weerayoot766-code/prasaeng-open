@@ -19,17 +19,32 @@ body{
   grid-template-columns:repeat(3,1fr);
   gap: 10px;
 }
+/* 🆕 มือถือจอแคบ (≤600px) ใช้ 2 คอลัมน์แทน 3 — การ์ดใหญ่ขึ้น อ่านง่ายขึ้น */
+@media(max-width:600px){
+  .products-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
 
 .product-card {
   background:#fff;
   border-radius:18px;
-  padding:16px;
+  padding:12px;
   text-align:center;
   box-shadow:0 6px 18px rgba(0,0,0,.08);
 }
+.product-card h3{
+  font-size:14.5px;
+  margin:8px 0 3px;
+  line-height:1.3;
+}
+.product-card > p:not(.product-desc){
+  margin:3px 0 8px;
+  font-size:14px;
+}
 .product-img{
   width:100% !important;
-  height:180px !important;
+  height:120px !important;
   object-fit:contain !important;
   border-radius:10px;
   background:#fff;
@@ -43,6 +58,9 @@ body{
 
 .product-card button{
   width:100%;
+  padding:9px;
+  font-size:13px;
+  margin-top:2px;
 }
 
 button{
@@ -101,26 +119,26 @@ input,select{
   font-size:20px;
   font-weight:800;
 }
+
+/* 🆕 กล่องเมนูหน้าแรก — บังคับ 3 คอลัมน์ทุกขนาดหน้าจอ (รวมมือถือ) */
 .home-buttons{
-  display:flex;
-  gap:20px;
-  justify-content:center;
-  padding:20px;
-  flex-wrap:wrap;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+  padding:16px;
 }
 
 .home-buttons button{
-  flex:1;
-  min-width:250px;
-  padding:22px;
   border:none;
-  border-radius:20px;
+  border-radius:16px;
   color:#fff;
-  font-size:22px;
+  font-size:12.5px;
   font-weight:bold;
   cursor:pointer;
-
-  box-shadow:0 6px 16px rgba(0,0,0,.15);
+  line-height:1.35;
+  padding:12px 6px;
+  min-height:76px;
+  box-shadow:0 4px 12px rgba(0,0,0,.15);
 }
 
 .btn-order{
@@ -138,14 +156,204 @@ input,select{
 .customer-card{
   background:#fff;
   margin:20px 24px;
-  padding:28px;
-  border-radius:24px;
-  box-shadow:0 8px 24px rgba(255,0,120,.10);
+  padding:26px;
+  border-radius:22px;
+  box-shadow:0 10px 26px rgba(255,0,120,.08);
+  border:1px solid #ffe3f0;
 }
 
 .customer-card h2{
   margin:0 0 22px;
-  font-size:28px;
+  font-size:19px;
+  color:#e6127a;
+  font-weight:800;
+  letter-spacing:.01em;
+}
+
+/* 🆕 การ์ดตะกร้า — สไตล์ใบเสร็จพรีเมียม โทนครีม-ทอง */
+.cart-card{
+  background:linear-gradient(180deg,#fffaf3,#ffffff);
+  border:1px solid #f0dfc0;
+  border-radius:22px;
+  padding:22px;
+  margin:16px 24px;
+  box-shadow:0 10px 28px rgba(180,140,60,.12);
+}
+.cart-card-header{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding-bottom:14px;
+  margin-bottom:6px;
+  border-bottom:1px solid #f0dfc0;
+}
+.cart-card-header .cart-icon{ font-size:24px; }
+.cart-card-header h2{
+  margin:0;
+  font-size:19px;
+  color:#7a4a00;
+  letter-spacing:.02em;
+  font-weight:800;
+}
+.cart-items{ display:flex; flex-direction:column; }
+.cart-item{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:13px 0;
+  border-bottom:1px dashed #f1e3cf;
+}
+.cart-item:last-child{ border-bottom:none; }
+.cart-item-index{
+  width:24px; height:24px;
+  border-radius:50%;
+  background:#fff1de;
+  color:#b8790a;
+  font-size:12px;
+  font-weight:800;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.cart-item-info{ flex:1; min-width:0; }
+.cart-item-name{
+  font-size:14.5px;
+  font-weight:700;
+  color:#3a2b12;
+  overflow-wrap:break-word;
+}
+.cart-item-meta{
+  font-size:12.5px;
+  color:#a4864f;
+  margin-top:3px;
+}
+.cart-item-options{
+  font-size:11.5px;
+  color:#c47a2c;
+  margin-top:4px;
+  line-height:1.5;
+}
+
+/* 🆕 การ์ดร้านแนะนำวันนี้ — เรียงแนวนอน มีป้ายมงกุฎ */
+.recommended-row{
+  display:flex;
+  gap:12px;
+  overflow-x:auto;
+  padding:4px 2px 10px;
+  -webkit-overflow-scrolling:touch;
+}
+.recommended-card{
+  flex:0 0 auto;
+  width:110px;
+  background:#fff;
+  border-radius:16px;
+  padding:10px;
+  text-align:center;
+  box-shadow:0 4px 14px rgba(255,180,0,.15);
+  border:1.5px solid #ffe9b3;
+  cursor:pointer;
+}
+.recommended-badge{
+  display:inline-block;
+  background:linear-gradient(135deg,#ffb703,#fb8500);
+  color:#fff;
+  font-size:10px;
+  font-weight:800;
+  padding:3px 8px;
+  border-radius:10px;
+  margin-bottom:6px;
+}
+.recommended-card-img{
+  width:100%;
+  aspect-ratio:1/1;
+  border-radius:12px;
+  object-fit:cover;
+  background:#fff5e6;
+  margin-bottom:6px;
+}
+.recommended-card-icon{
+  width:100%;
+  aspect-ratio:1/1;
+  border-radius:12px;
+  background:#fff5e6;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+  margin-bottom:6px;
+}
+.recommended-card-name{
+  font-size:12px;
+  font-weight:700;
+  color:#333;
+  display:block;
+}
+.recommended-card-category{
+  font-size:10.5px;
+  color:#999;
+  display:block;
+  margin-top:2px;
+}
+.cart-remove-btn{
+  width:34px; height:34px;
+  border-radius:10px;
+  background:#fdeeee;
+  color:#d63333;
+  border:none;
+  font-size:15px;
+  cursor:pointer;
+  flex-shrink:0;
+  padding:0;
+}
+.cart-empty{
+  text-align:center;
+  color:#b8a276;
+  padding:34px 10px;
+  font-size:14px;
+}
+.coupon-box{
+  margin-top:16px;
+  padding:14px;
+  background:linear-gradient(135deg,#fff0f7,#fff8fb);
+  border:1.5px dashed #ff8fc4;
+  border-radius:14px;
+}
+.coupon-box select{
+  width:100%;
+  margin-top:8px;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid #ffc2e0;
+  font-size:14px;
+  background:#fff;
+  color:#a3134f;
+  font-weight:bold;
+}
+.cart-summary{
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px solid #f0dfc0;
+}
+.cart-summary-row{
+  display:flex;
+  justify-content:space-between;
+  font-size:13.5px;
+  color:#7a6b4a;
+  padding:4px 0;
+}
+.cart-summary-total{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:10px;
+  padding-top:12px;
+  border-top:1px dashed #d9c592;
+  font-size:16px;
+  font-weight:900;
+  color:#7a4a00;
+}
+.cart-summary-total span:last-child{
+  color:#ff2f92;
+  font-size:21px;
 }
 
 .customer-grid{
@@ -158,14 +366,25 @@ input,select{
   display:block;
   font-weight:700;
   margin-bottom:8px;
+  color:#7a5a6a;
+  font-size:14px;
 }
 
 .input-group input{
   width:100%;
-  padding:18px;
-  border:1px solid #ddd;
-  border-radius:16px;
-  font-size:20px;
+  padding:14px 16px;
+  border:1.5px solid #ffe3f0;
+  border-radius:14px;
+  font-size:16px;
+  box-sizing:border-box;
+  transition:border-color .15s, box-shadow .15s;
+  background:#fffafc;
+}
+.input-group input:focus{
+  outline:none;
+  border-color:#ff2f92;
+  box-shadow:0 0 0 3px rgba(255,47,146,.12);
+  background:#fff;
 }
 
 .location-row{
@@ -193,6 +412,11 @@ input,select{
 .confirm-btn{
   width:100%;
   margin-top:18px;
+  background:linear-gradient(135deg,#ff4fa3,#c2185b);
+  box-shadow:0 8px 22px rgba(255,47,146,.35);
+  font-size:17px;
+  font-weight:800;
+  letter-spacing:.02em;
 }
 @media(max-width:700px){
   .customer-grid{
@@ -271,10 +495,12 @@ input,select{
   margin-right:10px;
   border-radius:15px;
 }
+
+/* 🆕 กริดรายชื่อร้านค้า — 4 คอลัมน์เหมือนเดิม แต่รูปยืดตามช่อง (ไม่ล้นจอมือถือ) */
 .shop-grid{
   display:grid;
   grid-template-columns:repeat(4,1fr);
-  gap:16px 8px;
+  gap:10px 6px;
   padding:10px 0;
 }
 .shop-tile{
@@ -283,30 +509,33 @@ input,select{
   align-items:center;
   text-align:center;
   cursor:pointer;
+  min-width:0;
 }
 .shop-tile-img{
-  width:120px;
-  height:120px;
-  border-radius:20px;
+  width:100%;
+  aspect-ratio:1/1;
+  border-radius:16px;
   object-fit:cover;
   background:#fff5fb;
   margin-bottom:6px;
 }
 .shop-tile-icon{
-  width:120px;
-  height:120px;
-  border-radius:20px;
+  width:100%;
+  aspect-ratio:1/1;
+  border-radius:16px;
   background:#ffe3f0;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:28px;
+  font-size:22px;
   margin-bottom:6px;
 }
 .shop-tile-name{
-  font-size:16px;
+  font-size:11px;
   font-weight:700;
   color:#333;
+  overflow-wrap:break-word;
+  width:100%;
 }
 .qty-modal-overlay{
   display:none;
@@ -446,6 +675,184 @@ input,select{
 .shop-scroll-row .shop-tile-icon{
   width:90px;
   height:90px;
+  aspect-ratio:unset;
+}
+
+/* ---------- แท็บด้านล่าง ---------- */
+body{
+  padding-bottom: 160px; /* กันเนื้อหาโดนแถบเมนูด้านล่างบัง */
+}
+.tab-page{
+  display:none;
+}
+.tab-page.active{
+  display:block;
+}
+.bottom-nav{
+  position:fixed;
+  left:0; right:0; bottom:0;
+  background:#fff;
+  border-top:2px solid #f0d6e4;
+  display:flex;
+  padding:12px 2px calc(12px + env(safe-area-inset-bottom));
+  border-radius:28px 28px 0 0;
+  box-shadow:0 -8px 20px rgba(0,0,0,.08);
+  z-index:500;
+}
+
+/* 🆕 เมนูล่าง — เล็กลง กันคำยาว (เช่น "ติดตามออเดอร์") ล้นจอ */
+.nav-item{
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  padding:8px 2px;
+  margin:0 1px;
+  color:#ff2f92;
+  font-size:10px;
+  font-weight:900;
+  line-height:1.15;
+  cursor:pointer;
+  background:none;
+  border:none;
+  border-radius:14px;
+  font-family:Arial;
+  min-height:70px;
+  overflow-wrap:break-word;
+  word-break:break-word;
+}
+.nav-item span:last-child{ width:100%; }
+.nav-item .nav-ico{ font-size:26px; line-height:1; }
+.nav-item .nav-ico svg{ width:26px; height:26px; display:block; margin:0 auto; }
+.nav-item.active{ color:#ff2f92; font-weight:900; background:#ffe3f0; box-shadow:inset 0 0 0 2px #ff9fc9; }
+
+#trackEmptyState{
+  text-align:center;
+  color:#888;
+  padding:40px 20px;
+  font-size:16px;
+}
+
+/* 🆕 ช่องค้นหาร้านค้า/สินค้า */
+.search-bar-wrap{
+  padding:14px 20px 4px;
+}
+#searchBox{
+  width:100%;
+  padding:13px 16px;
+  border:1.5px solid #ffe3f0;
+  border-radius:16px;
+  font-size:15px;
+  box-sizing:border-box;
+  background:#fffafc;
+}
+#searchBox:focus{
+  outline:none;
+  border-color:#ff2f92;
+  box-shadow:0 0 0 3px rgba(255,47,146,.12);
+}
+
+/* 🆕 การ์ดสินค้าหมดชั่วคราว — จางลง กดสั่งไม่ได้ */
+.product-card.out-of-stock{
+  opacity:.55;
+}
+.product-card.out-of-stock .product-img{
+  filter:grayscale(60%);
+}
+.out-of-stock-badge{
+  display:inline-block;
+  background:#666;
+  color:#fff;
+  font-size:11px;
+  font-weight:700;
+  padding:3px 10px;
+  border-radius:10px;
+  margin-bottom:4px;
+}
+.product-card.out-of-stock button{
+  background:#bbb !important;
+  cursor:not-allowed;
+}
+
+/* 🆕 ตัวเลือกเครื่องดื่ม (หวาน/แยกน้ำ/Blue Card) ในหน้าต่างเลือกจำนวน */
+.option-pill-row{ display:flex; flex-wrap:wrap; gap:8px; }
+.option-pill{
+  padding:9px 16px;
+  border-radius:20px;
+  border:1.5px solid #ffe3f0;
+  background:#fff;
+  color:#666;
+  font-size:13.5px;
+  font-weight:600;
+  cursor:pointer;
+}
+.option-pill.active{
+  background:#ff2f92;
+  color:#fff;
+  border-color:#ff2f92;
+}
+#blueCardInput{
+  width:100%;
+  padding:12px 14px;
+  border:1.5px solid #ffe3f0;
+  border-radius:12px;
+  font-size:14px;
+  box-sizing:border-box;
+}
+#blueCardInput:focus{
+  outline:none;
+  border-color:#ff2f92;
+}
+
+/* 🆕 หมุดแผนที่ไรเดอร์/ลูกค้า (emoji icon แบบ Leaflet divIcon) */
+.rider-map-icon{
+  font-size:28px;
+  text-align:center;
+  line-height:32px;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.35));
+}
+
+/* 🆕 มือถือจอแคบ — ลดระยะขอบรอบการ์ด/body ให้เนื้อหาขยายใช้พื้นที่จอได้เต็มขึ้น
+   (ระวัง: ใช้ padding-left/right/top แยก ไม่ใช้ "padding" รวม เพราะจะไปทับ
+   padding-bottom:160px ของ body ด้านบนที่กันเมนูล่างบังเนื้อหา) */
+@media(max-width:600px){
+  body{
+    padding-left:10px;
+    padding-right:10px;
+    padding-top:10px;
+  }
+  .card{
+    margin:10px 0;
+    padding:14px;
+  }
+  .customer-card{
+    margin:10px 0;
+    padding:18px;
+  }
+}
+
+/* 🆕 ชื่อร้าน (เช่น "KFC") — ใหญ่ขึ้น สีชมพูเข้ม ใช้ได้ทุกขนาดหน้าจอ */
+.card h2{
+  font-size:26px;
+  color:#e6127a;
+  font-weight:800;
+}
+
+/* 🆕 ข้อความรายละเอียดสินค้า — เล็กลง มีสีสัน มีลูกเล่นนิดหน่อย */
+.product-desc{
+  font-size:12.5px;
+  color:#ff6b35;
+  font-style:italic;
+  line-height:1.45;
+  background:#fff4ec;
+  border-left:3px solid #ff9f43;
+  padding:5px 8px;
+  border-radius:6px;
+  margin:6px 0;
+  display:block;
 }
 
 /* ---------- 🆕 ร้านค้าแยกตามหมวด (หน้าสั่งของ) ---------- */
@@ -523,55 +930,4 @@ input,select{
   font-weight:700;
   color:#ff2f92;
   cursor:pointer;
-}
-
-/* ---------- แท็บด้านล่าง (เพิ่มใหม่) ---------- */
-body{
-  padding-bottom: 160px; /* กันเนื้อหาโดนแถบเมนูด้านล่างบัง (ตัวอักษรใหญ่ขึ้นอีก) */
-}
-.tab-page{
-  display:none;
-}
-.tab-page.active{
-  display:block;
-}
-.bottom-nav{
-  position:fixed;
-  left:0; right:0; bottom:0;
-  background:#fff;
-  border-top:2px solid #f0d6e4;
-  display:flex;
-  padding:12px 2px calc(12px + env(safe-area-inset-bottom));
-  border-radius:28px 28px 0 0;
-  box-shadow:0 -8px 20px rgba(0,0,0,.08);
-  z-index:500;
-}
-.nav-item{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:5px;
-  padding:10px 2px;
-  margin:0 2px;
-  color:#ff2f92;
-  font-size:17px;
-  font-weight:900;
-  line-height:1.2;
-  cursor:pointer;
-  background:none;
-  border:none;
-  border-radius:16px;
-  font-family:Arial;
-  min-height:90px;
-}
-.nav-item .nav-ico{ font-size:44px; line-height:1; }
-.nav-item .nav-ico svg{ width:44px; height:44px; display:block; margin:0 auto; }
-.nav-item.active{ color:#ff2f92; font-weight:900; background:#ffe3f0; box-shadow:inset 0 0 0 2px #ff9fc9; }
-#trackEmptyState{
-  text-align:center;
-  color:#888;
-  padding:40px 20px;
-  font-size:16px;
 }
