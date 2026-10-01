@@ -348,9 +348,7 @@ const CATEGORY_DISPLAY_ORDER = [
   { key: "อื่นๆ", icon: "🧩" }
 ];
 
-let lastOrderedShopsCache = []; // 🆕 เก็บไว้เผื่อกด "ดูทั้งหมด" ของหมวด แล้วกดกลับมาหน้าเดิม
-
-/** 🆕 สร้าง tile ร้านค้า 1 อัน ใช้ร่วมกันทั้งแถว "เคยสั่ง" / แถวตามหมวด / กริด "ดูทั้งหมด" */
+/** 🆕 สร้าง tile ร้านค้า 1 อัน ใช้ร่วมกันทั้งแถว "เคยสั่ง" / กริดตามหมวด */
 function buildShopTileHtml(shopName){
   const shopProducts = window.productsData.filter(function(p){
     return String(p.shop || "ไม่ระบุร้าน") === shopName;
@@ -417,8 +415,6 @@ function renderStoreHomeHtml(orderedShops){
     if(!shops.includes(shop)){ shops.push(shop); }
   });
 
-  lastOrderedShopsCache = orderedShops || [];
-
   let html = "";
 
   const validOrderedShops = orderedShops.filter(function(s){
@@ -448,38 +444,19 @@ function renderStoreHomeHtml(orderedShops){
   });
   html += '</div>';
 
-  // ---------- หมวดละแถว เลื่อนแนวนอน ----------
+  // ---------- โซนตามหมวด — โชว์ร้านครบทุกร้าน กริด 4 ช่องพอดีหน้าจอ ไม่ต้องเลื่อน ----------
   categoryGroups.forEach(function(cat, idx){
-    html += '<div id="cat-sec-' + idx + '" class="category-section">';
+    html += '<div id="cat-sec-' + idx + '" class="category-zone' + (idx % 2 === 1 ? ' category-zone-alt' : '') + '">';
     html += '<div class="category-section-head">';
     html += '<div class="category-section-icon">' + cat.icon + '</div>';
     html += '<div class="category-section-title"><h3>' + escapeHtml(cat.key) + '</h3><span>' + cat.shops.length + ' ร้าน</span></div>';
-    html += '<a class="category-seeall" onclick="showCategoryAllShops(' + idx + ')">ดูทั้งหมด <span>›</span></a>';
     html += '</div>';
-    html += '<div class="shop-scroll-row">';
+    html += '<div class="shop-grid">';
     cat.shops.forEach(function(shop){ html += buildShopTileHtml(shop); });
     html += '</div></div>';
   });
 
   document.getElementById("productList").innerHTML = html;
-
-  // เก็บหมวดไว้ใช้ตอนกด "ดูทั้งหมด"
-  window._lastCategoryGroups = categoryGroups;
-}
-
-/** 🆕 กด "ดูทั้งหมด" ของหมวด — โชว์กริดร้านทั้งหมดของหมวดนั้น พร้อมปุ่มกลับ */
-function showCategoryAllShops(idx){
-  const cat = (window._lastCategoryGroups || [])[idx];
-  if(!cat) return;
-
-  let html = '<a class="category-back-btn" onclick="renderStoreHomeHtml(lastOrderedShopsCache)">‹ กลับ</a>';
-  html += '<h2>' + cat.icon + ' ' + escapeHtml(cat.key) + '</h2>';
-  html += '<div class="shop-grid">';
-  cat.shops.forEach(function(shop){ html += buildShopTileHtml(shop); });
-  html += '</div>';
-
-  document.getElementById("productList").innerHTML = html;
-  window.scrollTo(0, 0);
 }
 
 function renderHomeShopGrid(){
@@ -1591,9 +1568,12 @@ function enterMemberOrder(name, phone, address, memberLat, memberLng){
 async function loadAdSlider(){
   try {
     const ads = await apiGet('getActiveAds');
-    renderAdSlider(ads || []);
+    // 🆕 โชว์โฆษณาชุดเดียวกัน ทั้งหน้าแรก และด้านบนหน้า "สั่งของ" (ยิง API แค่ครั้งเดียว ไม่เพิ่มโหลด)
+    renderAdSlider(ads || [], "adTrack");
+    renderAdSlider(ads || [], "adTrackOrder");
   } catch(error){
-    renderAdSlider([]);
+    renderAdSlider([], "adTrack");
+    renderAdSlider([], "adTrackOrder");
   }
 }
 
@@ -1603,8 +1583,8 @@ function adClickHandler(linkShopName){
   if(linkShopName){ goToShopFromAd(linkShopName); }
 }
 
-function renderAdSlider(ads){
-  const track = document.getElementById("adTrack");
+function renderAdSlider(ads, trackId){
+  const track = document.getElementById(trackId || "adTrack");
   if(!track) return;
 
   if(ads.length === 0){
