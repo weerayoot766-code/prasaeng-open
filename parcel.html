@@ -301,6 +301,12 @@ button.confirm-btn:disabled{
   filter:drop-shadow(0 2px 3px rgba(0,0,0,.35));
 }
 .map-picker-map-wrap{ position:relative; }
+.map-picker-layer-btn{
+  position:absolute; right:8px; bottom:8px; z-index:500;
+  background:#fff; color:#3a2130; border:1.5px solid #ddd;
+  border-radius:10px; padding:7px 10px; font-size:12px; font-weight:bold;
+  cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.2);
+}
 .map-picker-coords{
   font-size:12.5px; color:#1a9c52; font-weight:bold; text-align:center; margin-bottom:10px;
 }
@@ -336,6 +342,7 @@ button.confirm-btn:disabled{
           <circle cx="12" cy="12" r="5" fill="#fff"/>
         </svg>
       </div>
+      <button type="button" id="mapPickerLayerBtn" class="map-picker-layer-btn" onclick="toggleMapPickerLayer()">🛰️ ภาพถ่ายดาวเทียม</button>
     </div>
     <div class="map-picker-coords" id="mapPickerCoords">&nbsp;</div>
     <div class="map-picker-actions">
@@ -636,6 +643,9 @@ const MAP_PICKER_DEFAULT_CENTER = { lat: 8.5737747, lng: 99.2393303 };
 let mapPickerWhich = null; // 'origin' หรือ 'dest' ที่กำลังปักหมุดอยู่
 let mapPickerMapObj = null;
 let mapPickerCurrentLatLng = null;
+let mapPickerStreetLayer = null;
+let mapPickerSatelliteLayer = null; // 🆕 ภาพถ่ายดาวเทียม + ชื่อสถานที่ (Esri) — ช่วยดูของจริง/จุดสังเกตได้ ไม่ใช่แค่เส้นถนนเปล่าๆ แบบแผนที่ธรรมดา
+let mapPickerIsSatellite = true; // เริ่มต้นด้วยดาวเทียมเลย เพราะเห็นจุดสังเกตง่ายกว่าแผนที่เส้นถนนเปล่าๆ
 
 /** 🆕 เปิดหน้าต่างเลือกตำแหน่งจากแผนที่ (แทน GPS อย่างเดียว เพราะปลายทางผู้ใช้ไม่ได้อยู่ที่นั่นจริง) */
 function openMapPicker(which){
@@ -654,9 +664,25 @@ function openMapPicker(which){
     if(!mapPickerMapObj){
       mapPickerMapObj = L.map("mapPickerMap", { zoomControl:true, attributionControl:false })
         .setView([startLat, startLng], 16);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+
+      // แผนที่เส้นถนนปกติ (OpenStreetMap)
+      mapPickerStreetLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19
-      }).addTo(mapPickerMapObj);
+      });
+
+      // 🆕 ภาพถ่ายดาวเทียม (Esri World Imagery) + ชั้นชื่อสถานที่/ถนนทับด้านบน (คล้ายโหมด "ไฮบริด" ของ Google Maps)
+      mapPickerSatelliteLayer = L.layerGroup([
+        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+          maxZoom: 19
+        }),
+        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
+          maxZoom: 19
+        })
+      ]);
+
+      (mapPickerIsSatellite ? mapPickerSatelliteLayer : mapPickerStreetLayer).addTo(mapPickerMapObj);
+      updateMapPickerLayerBtnLabel();
+
       mapPickerMapObj.on("move", updateMapPickerCoords);
     } else {
       mapPickerMapObj.invalidateSize();
@@ -664,6 +690,25 @@ function openMapPicker(which){
     }
     updateMapPickerCoords();
   }, 80);
+}
+
+/** 🆕 สลับไปมาระหว่างแผนที่เส้นถนนปกติ กับภาพถ่ายดาวเทียม+ชื่อสถานที่ */
+function toggleMapPickerLayer(){
+  if(!mapPickerMapObj) return;
+  if(mapPickerIsSatellite){
+    mapPickerMapObj.removeLayer(mapPickerSatelliteLayer);
+    mapPickerMapObj.addLayer(mapPickerStreetLayer);
+  } else {
+    mapPickerMapObj.removeLayer(mapPickerStreetLayer);
+    mapPickerMapObj.addLayer(mapPickerSatelliteLayer);
+  }
+  mapPickerIsSatellite = !mapPickerIsSatellite;
+  updateMapPickerLayerBtnLabel();
+}
+
+function updateMapPickerLayerBtnLabel(){
+  const btn = document.getElementById("mapPickerLayerBtn");
+  if(btn){ btn.textContent = mapPickerIsSatellite ? "🗺️ แผนที่ปกติ" : "🛰️ ภาพถ่ายดาวเทียม"; }
 }
 
 /** 🆕 อัปเดตพิกัดที่แสดงอยู่กลางแผนที่ (หมุดคงที่ตรงกลาง ผู้ใช้เลื่อนแผนที่ใต้หมุดแทน) */
