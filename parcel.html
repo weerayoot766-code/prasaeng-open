@@ -286,8 +286,19 @@ button.confirm-btn:disabled{
 .map-picker-center-pin{
   position:absolute; top:50%; left:50%;
   transform:translate(-50%,-100%);
-  font-size:30px; pointer-events:none;
-  filter:drop-shadow(0 3px 3px rgba(0,0,0,.35));
+  width:34px; height:46px;
+  pointer-events:none;
+  filter:drop-shadow(0 3px 3px rgba(0,0,0,.4));
+  z-index:500;
+}
+.map-picker-center-pin svg{ display:block; width:100%; height:100%; }
+
+/* ---------- 🆕 แผนที่ติดตามไรเดอร์ ใน parcel.html (แบบเดียวกับหน้าสั่งอาหาร) ---------- */
+.rider-map-icon{
+  font-size:28px;
+  text-align:center;
+  line-height:32px;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.35));
 }
 .map-picker-map-wrap{ position:relative; }
 .map-picker-coords{
@@ -319,7 +330,12 @@ button.confirm-btn:disabled{
     <div class="map-picker-hint">เลื่อนแผนที่ให้หมุด 📍 ตรงจุดที่ต้องการ แล้วกดยืนยัน</div>
     <div class="map-picker-map-wrap">
       <div id="mapPickerMap"></div>
-      <div class="map-picker-center-pin">📍</div>
+      <div class="map-picker-center-pin">
+        <svg viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="#ff2f3a"/>
+          <circle cx="12" cy="12" r="5" fill="#fff"/>
+        </svg>
+      </div>
     </div>
     <div class="map-picker-coords" id="mapPickerCoords">&nbsp;</div>
     <div class="map-picker-actions">
@@ -852,6 +868,8 @@ async function markParcelPaid(){
       senderName: orderData.senderName, senderPhone: orderData.senderPhone, originAddress: orderData.originAddress,
       receiverName: orderData.receiverName, receiverPhone: orderData.receiverPhone, destAddress: orderData.destAddress,
       distanceKm: orderData.distanceKm, tier: orderData.tier, boxes: orderData.boxes, total: orderData.total,
+      // 🆕 เก็บพิกัดต้นทาง/ปลายทางไว้ด้วย เผื่อรีเฟรชหน้าแล้วอยากโชว์แผนที่ไรเดอร์เทียบตำแหน่งปลายทาง
+      originLat: origin.lat, originLng: origin.lng, destLat: dest.lat, destLng: dest.lng,
       items: orderData.items.map(function(i){ return { description: i.description, size: i.size, qty: i.qty }; })
     }));
 
@@ -917,6 +935,15 @@ function renderParcelTrackingScreen(status, savedData){
   const isDone = status.status === "ส่งสำเร็จ";
   const hasRider = !!status.riderName;
 
+  // 🆕 หน้านี้กำลังจะถูกวาดใหม่ทับ container เดิม (div #parcelRiderMap จะหายไป) ต้องทิ้ง instance แผนที่เก่าก่อน
+  // ไม่งั้น Leaflet จะพยายามอัปเดตหมุดบน DOM ที่ถูกลบไปแล้ว ทำให้แผนที่ไม่ขึ้นตอนกดเช็กสถานะซ้ำ
+  if(parcelRiderMapInstance){
+    parcelRiderMapInstance.remove();
+    parcelRiderMapInstance = null;
+    parcelRiderMarker = null;
+    parcelDestMarker = null;
+  }
+
   let itemsHtml = "";
   if(savedData && savedData.items){
     savedData.items.forEach(function(i, idx){
@@ -938,6 +965,10 @@ function renderParcelTrackingScreen(status, savedData){
 
       ${hasRider ? `
         <div class="receipt"><b>🛵 ไรเดอร์:</b> ${escapeHtml(status.riderName)} (${escapeHtml(status.riderPhone || "-")})</div>
+        <div id="parcelRiderMapBox" style="margin-bottom:16px;">
+          <div id="parcelRiderMap" style="width:100%;height:240px;border-radius:14px;overflow:hidden;"></div>
+          <p id="parcelRiderMapUpdated" style="text-align:center;font-size:12px;color:#999;margin-top:6px;"></p>
+        </div>
       ` : `
         <div class="receipt" style="text-align:center;color:#8a6a79;">ยังไม่มีไรเดอร์รับงาน รอสักครู่นะครับ</div>
       `}
@@ -966,6 +997,82 @@ function renderParcelTrackingScreen(status, savedData){
       }
     </div>
   `;
+
+  // 🆕 มีไรเดอร์แล้วและยังไม่เสร็จงาน → โชว์แผนที่ตำแหน่งไรเดอร์ (เทียบกับหมุดปลายทางถ้ามีพิกัดเก็บไว้)
+  if(hasRider && !isDone){
+    const destLat = savedData && savedData.destLat ? Number(savedData.destLat) : null;
+    const destLng = savedData && savedData.destLng ? Number(savedData.destLng) : null;
+    updateParcelRiderMapView(status.riderPhone, destLat, destLng);
+  }
+}
+
+// 🆕 ตัวแปรเก็บ instance แผนที่ไรเดอร์ของหน้ารับ-ส่งของ (แยกจากแผนที่หน้าสั่งอาหาร)
+let parcelRiderMapInstance = null;
+let parcelRiderMarker = null;
+let parcelDestMarker = null;
+
+/** 🆕 ดึงพิกัดไรเดอร์ล่าสุดจาก getRiderLocation แล้ววาด/อัปเดตหมุดบนแผนที่ติดตามของหน้ารับ-ส่งของ */
+async function updateParcelRiderMapView(riderPhone, destLat, destLng){
+  const box = document.getElementById("parcelRiderMapBox");
+  if(!box) return; // หน้าเปลี่ยนไปแล้ว (เช่นกดเช็กสถานะซ้ำ) ไม่ต้องทำอะไรต่อ
+
+  try {
+    const loc = await apiGet('getRiderLocation', { phone: riderPhone });
+    if(!loc.success){
+      if(!parcelRiderMapInstance){
+        document.getElementById("parcelRiderMap").innerHTML =
+          '<p style="text-align:center;color:#999;font-size:13px;padding:20px;">ไรเดอร์ยังไม่ได้เปิดหน้าแชร์ตำแหน่ง หรือยังไม่มีพิกัดล่าสุด</p>';
+      }
+      return;
+    }
+
+    if(!parcelRiderMapInstance){
+      parcelRiderMapInstance = L.map("parcelRiderMap");
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap"
+      }).addTo(parcelRiderMapInstance);
+    }
+
+    const riderLatLng = [loc.lat, loc.lng];
+    if(!parcelRiderMarker){
+      parcelRiderMarker = L.marker(riderLatLng, {
+        icon: L.divIcon({ html: "🛵", className: "rider-map-icon", iconSize: [32,32] })
+      }).addTo(parcelRiderMapInstance).bindPopup("ไรเดอร์");
+    } else {
+      parcelRiderMarker.setLatLng(riderLatLng);
+    }
+
+    if(destLat && destLng){
+      const destLatLng = [destLat, destLng];
+      if(!parcelDestMarker){
+        parcelDestMarker = L.marker(destLatLng, {
+          icon: L.divIcon({ html: "🏁", className: "rider-map-icon", iconSize: [32,32] })
+        }).addTo(parcelRiderMapInstance).bindPopup("จุดส่งของ");
+      } else {
+        parcelDestMarker.setLatLng(destLatLng);
+      }
+      parcelRiderMapInstance.fitBounds([riderLatLng, destLatLng], { padding: [30,30] });
+    } else {
+      parcelRiderMapInstance.setView(riderLatLng, 15);
+    }
+
+    // แก้บั๊ก Leaflet แสดงผลไม่เต็มกรอบตอนกล่องเพิ่งถูกสร้าง/ยังซ่อนอยู่
+    setTimeout(function(){ if(parcelRiderMapInstance) parcelRiderMapInstance.invalidateSize(); }, 200);
+
+    if(loc.updatedAt){
+      const updatedDate = new Date(loc.updatedAt);
+      const updatedEl = document.getElementById("parcelRiderMapUpdated");
+      if(updatedEl){ updatedEl.innerText = "อัปเดตล่าสุด " + updatedDate.toLocaleTimeString("th-TH"); }
+    }
+  } catch(error){
+    if(!parcelRiderMapInstance){
+      const mapEl = document.getElementById("parcelRiderMap");
+      if(mapEl){
+        mapEl.innerHTML =
+          '<p style="text-align:center;color:#d63333;font-size:13px;padding:20px;">โหลดแผนที่ไม่สำเร็จ: ' + escapeHtml(error.message) + '</p>';
+      }
+    }
+  }
 }
 
 /** 🆕 เช็กสถานะล่าสุดจากเซิร์ฟเวอร์ แล้ววาดหน้าติดตามใหม่ */
