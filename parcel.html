@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>รับ-ส่งของในพระแสง</title>
 
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
 <style>
 :root{
   --rose:#ff2f92;
@@ -257,6 +260,50 @@ button.confirm-btn:disabled{
 @media(max-width:420px){
   .item-grid{ grid-template-columns:1fr; }
 }
+
+/* ---------- 🆕 map pin picker modal ---------- */
+.map-picker-overlay{
+  position:fixed; inset:0; background:rgba(40,10,25,.55);
+  z-index:9999; display:flex; align-items:flex-end; justify-content:center;
+}
+.map-picker-box{
+  background:#fff; width:100%; max-width:560px;
+  border-radius:20px 20px 0 0;
+  padding:16px; box-shadow:0 -10px 30px rgba(0,0,0,.25);
+  max-height:92vh; display:flex; flex-direction:column;
+}
+.map-picker-title{
+  font-size:16px; font-weight:800; color:var(--rose-dark);
+  margin:0 0 4px;
+}
+.map-picker-hint{
+  font-size:12.5px; color:#888; margin:0 0 10px;
+}
+#mapPickerMap{
+  width:100%; height:300px; border-radius:14px;
+  border:1.5px solid #f0cfdd; margin-bottom:10px;
+}
+.map-picker-center-pin{
+  position:absolute; top:50%; left:50%;
+  transform:translate(-50%,-100%);
+  font-size:30px; pointer-events:none;
+  filter:drop-shadow(0 3px 3px rgba(0,0,0,.35));
+}
+.map-picker-map-wrap{ position:relative; }
+.map-picker-coords{
+  font-size:12.5px; color:#1a9c52; font-weight:bold; text-align:center; margin-bottom:10px;
+}
+.map-picker-actions{ display:flex; flex-direction:column; gap:10px; }
+.map-picker-gps-btn{
+  background:#fff; color:var(--rose); border:1.5px solid var(--rose);
+  border-radius:12px; padding:11px; font-size:13.5px; font-weight:bold; cursor:pointer;
+}
+.map-picker-row{ display:flex; gap:10px; }
+.map-picker-row button{ flex:1; }
+.map-picker-cancel-btn{
+  background:#f1e7ec; color:#777; border:none;
+  border-radius:12px; padding:13px; font-size:14px; font-weight:bold; cursor:pointer;
+}
 </style>
 </head>
 <body>
@@ -264,6 +311,25 @@ button.confirm-btn:disabled{
 <div class="wrap">
   <button class="back-btn" onclick="goHome()">← กลับหน้าแรก</button>
   <div id="app"></div>
+</div>
+
+<div id="mapPickerOverlay" class="map-picker-overlay" style="display:none;">
+  <div class="map-picker-box">
+    <div class="map-picker-title" id="mapPickerTitle">📍 ปักหมุดตำแหน่ง</div>
+    <div class="map-picker-hint">เลื่อนแผนที่ให้หมุด 📍 ตรงจุดที่ต้องการ แล้วกดยืนยัน</div>
+    <div class="map-picker-map-wrap">
+      <div id="mapPickerMap"></div>
+      <div class="map-picker-center-pin">📍</div>
+    </div>
+    <div class="map-picker-coords" id="mapPickerCoords">&nbsp;</div>
+    <div class="map-picker-actions">
+      <button type="button" class="map-picker-gps-btn" onclick="useCurrentLocationInPicker()">📡 ใช้ตำแหน่งปัจจุบันของฉัน</button>
+      <div class="map-picker-row">
+        <button type="button" class="map-picker-cancel-btn" onclick="closeMapPicker()">ยกเลิก</button>
+        <button type="button" class="confirm-btn" style="padding:12px;font-size:14.5px;" onclick="confirmMapPick()">✅ ยืนยันตำแหน่งนี้</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="api.js"></script>
@@ -387,7 +453,7 @@ function render(){
       <label>📍 ที่อยู่ต้นทาง</label>
       <textarea id="originAddress" placeholder="บ้านเลขที่ / หมู่บ้าน / ตำบล / จุดสังเกต"></textarea>
       <div class="pin-row">
-        <button type="button" class="pin-btn" onclick="pinLocation('origin')">📍 ปักหมุดตำแหน่ง</button>
+        <button type="button" class="pin-btn" onclick="openMapPicker('origin')">📍 ปักหมุดตำแหน่ง</button>
         <div class="pin-status ${origin.lat ? 'ok' : ''}" id="originPinStatus">
           ${origin.lat ? 'ปักหมุดแล้ว ✅' : 'ยังไม่ได้ปักหมุด'}
         </div>
@@ -409,7 +475,7 @@ function render(){
       <label>📍 ที่อยู่ปลายทาง</label>
       <textarea id="destAddress" placeholder="บ้านเลขที่ / หมู่บ้าน / ตำบล / จุดสังเกต"></textarea>
       <div class="pin-row">
-        <button type="button" class="pin-btn" onclick="pinLocation('dest')">📍 ปักหมุดตำแหน่ง</button>
+        <button type="button" class="pin-btn" onclick="openMapPicker('dest')">📍 ปักหมุดตำแหน่ง</button>
         <div class="pin-status ${dest.lat ? 'ok' : ''}" id="destPinStatus">
           ${dest.lat ? 'ปักหมุดแล้ว ✅' : 'ยังไม่ได้ปักหมุด'}
         </div>
@@ -548,29 +614,95 @@ function updateItem(idx, field, value){
   refreshDynamicParts();
 }
 
-function pinLocation(which){
+// 🆕 จุดศูนย์กลางเริ่มต้นของแผนที่ (ใช้พิกัดร้าน/ศูนย์กลางอำเภอพระแสง ค่าเดียวกับที่ใช้คำนวณระยะทางฝั่งร้านอาหาร)
+const MAP_PICKER_DEFAULT_CENTER = { lat: 8.5737747, lng: 99.2393303 };
+
+let mapPickerWhich = null; // 'origin' หรือ 'dest' ที่กำลังปักหมุดอยู่
+let mapPickerMapObj = null;
+let mapPickerCurrentLatLng = null;
+
+/** 🆕 เปิดหน้าต่างเลือกตำแหน่งจากแผนที่ (แทน GPS อย่างเดียว เพราะปลายทางผู้ใช้ไม่ได้อยู่ที่นั่นจริง) */
+function openMapPicker(which){
+  mapPickerWhich = which;
+  document.getElementById("mapPickerTitle").textContent =
+    which === "origin" ? "📍 ปักหมุดต้นทาง (จุดรับของ)" : "📍 ปักหมุดปลายทาง (จุดส่งของ)";
+  document.getElementById("mapPickerOverlay").style.display = "flex";
+
+  // เริ่มที่ตำแหน่งที่ปักไว้แล้ว (ถ้ามี) ไม่งั้นเริ่มที่ศูนย์กลางอำเภอพระแสง
+  const existing = which === "origin" ? origin : dest;
+  const startLat = existing && existing.lat ? existing.lat : MAP_PICKER_DEFAULT_CENTER.lat;
+  const startLng = existing && existing.lng ? existing.lng : MAP_PICKER_DEFAULT_CENTER.lng;
+
+  // ต้องรอให้ overlay แสดงผลก่อน (display:flex) ไม่งั้น Leaflet จะวัดขนาดกล่องแผนที่ผิด
+  setTimeout(function(){
+    if(!mapPickerMapObj){
+      mapPickerMapObj = L.map("mapPickerMap", { zoomControl:true, attributionControl:false })
+        .setView([startLat, startLng], 16);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19
+      }).addTo(mapPickerMapObj);
+      mapPickerMapObj.on("move", updateMapPickerCoords);
+    } else {
+      mapPickerMapObj.invalidateSize();
+      mapPickerMapObj.setView([startLat, startLng], 16);
+    }
+    updateMapPickerCoords();
+  }, 80);
+}
+
+/** 🆕 อัปเดตพิกัดที่แสดงอยู่กลางแผนที่ (หมุดคงที่ตรงกลาง ผู้ใช้เลื่อนแผนที่ใต้หมุดแทน) */
+function updateMapPickerCoords(){
+  if(!mapPickerMapObj) return;
+  const center = mapPickerMapObj.getCenter();
+  mapPickerCurrentLatLng = { lat: center.lat, lng: center.lng };
+  document.getElementById("mapPickerCoords").textContent =
+    "พิกัด: " + center.lat.toFixed(5) + ", " + center.lng.toFixed(5);
+}
+
+/** 🆕 ปุ่มสะดวก — ใช้ตำแหน่ง GPS ปัจจุบันของอุปกรณ์มาเป็นจุดเริ่มบนแผนที่ (เหมาะกับ "ต้นทาง" ที่ผู้ส่งอยู่ ณ จุดนั้นจริง) */
+function useCurrentLocationInPicker(){
   if(!navigator.geolocation){
     alert("อุปกรณ์นี้ไม่รองรับ GPS");
     return;
   }
-  const statusEl = document.getElementById(which + "PinStatus");
-  statusEl.innerHTML = "📡 กำลังค้นหาตำแหน่ง...";
-
+  if(!mapPickerMapObj) return;
+  const coordsEl = document.getElementById("mapPickerCoords");
+  coordsEl.textContent = "📡 กำลังค้นหาตำแหน่งปัจจุบัน...";
   navigator.geolocation.getCurrentPosition(
     function(position){
-      const lat = position.coords.latitude;
-      const lng = position.coords.longitude;
-      if(which === "origin"){ origin = { lat, lng }; }
-      else { dest = { lat, lng }; }
-      statusEl.classList.add("ok");
-      statusEl.innerHTML = "ปักหมุดแล้ว ✅ (" + lat.toFixed(5) + ", " + lng.toFixed(5) + ")";
-      refreshDynamicParts();
+      mapPickerMapObj.setView([position.coords.latitude, position.coords.longitude], 17);
+      updateMapPickerCoords();
     },
     function(){
-      statusEl.innerHTML = "ปักหมุดไม่สำเร็จ กรุณาเปิดสิทธิ์ตำแหน่ง GPS";
-      alert("กรุณาเปิดสิทธิ์ตำแหน่ง GPS ก่อน");
+      alert("หาตำแหน่งปัจจุบันไม่สำเร็จ กรุณาเปิดสิทธิ์ตำแหน่ง GPS หรือเลื่อนแผนที่เลือกเอง");
+      updateMapPickerCoords();
     }
   );
+}
+
+/** 🆕 ยืนยันตำแหน่งที่เลือกบนแผนที่ (จุดกลางแผนที่ ณ ขณะนี้) ให้เป็นต้นทาง/ปลายทาง */
+function confirmMapPick(){
+  if(!mapPickerCurrentLatLng){
+    alert("กรุณาเลื่อนแผนที่เลือกตำแหน่งก่อน");
+    return;
+  }
+  const lat = mapPickerCurrentLatLng.lat;
+  const lng = mapPickerCurrentLatLng.lng;
+  if(mapPickerWhich === "origin"){ origin = { lat, lng }; }
+  else { dest = { lat, lng }; }
+
+  const statusEl = document.getElementById(mapPickerWhich + "PinStatus");
+  if(statusEl){
+    statusEl.classList.add("ok");
+    statusEl.innerHTML = "ปักหมุดแล้ว ✅ (" + lat.toFixed(5) + ", " + lng.toFixed(5) + ")";
+  }
+  closeMapPicker();
+  refreshDynamicParts();
+}
+
+function closeMapPicker(){
+  document.getElementById("mapPickerOverlay").style.display = "none";
+  mapPickerWhich = null;
 }
 
 let currentParcelOrderId = "";
