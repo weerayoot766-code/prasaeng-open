@@ -287,6 +287,10 @@ const DISTANCE_TIERS = [
 const promptPayId = "0932945790"; // 🆕 เบอร์พร้อมเพย์รับเงินค่าบริการรับ-ส่งของ (แก้ได้ตามจริง)
 const shopPhoneForContact = "0932945790"; // เบอร์ร้านให้ลูกค้าติดต่อกรณีเกินระยะบริการ
 
+// 🆕 จำงานที่กำลังติดตามไว้ใน localStorage กันหน้าเว็บรีโหลด/กดกลับหน้าแรกแล้วตามงานไม่ได้อีก
+const PARCEL_TRACK_KEY = "pd_currentParcelId";
+const PARCEL_TRACK_DATA_KEY = "pd_currentParcelData";
+
 const SIZE_OPTIONS = ["เล็ก (ถุง/กล่องเล็ก)", "กลาง (ลังทั่วไป)", "ใหญ่ (ลังใหญ่/เฟอร์นิเจอร์ชิ้นเล็ก)"];
 
 let items = [ { description:"", size:SIZE_OPTIONS[1], qty:1, photoDataUrl:"", photoBase64:"" } ];
@@ -708,6 +712,17 @@ async function markParcelPaid(){
     }
 
     currentParcelOrderId = result.parcelId;
+
+    // 🆕 เซฟไว้ใน localStorage เผื่อปิด/รีเฟรชหน้า จะได้กลับมาเห็นหน้าติดตามงานนี้อีก (ไม่ใช่กลับไปฟอร์มเปล่า)
+    // (ไม่เก็บรูปภาพ photoDataUrl/photoBase64 เพื่อกัน localStorage เต็ม — เก็บแค่ข้อความสรุป)
+    localStorage.setItem(PARCEL_TRACK_KEY, currentParcelOrderId);
+    localStorage.setItem(PARCEL_TRACK_DATA_KEY, JSON.stringify({
+      senderName: orderData.senderName, senderPhone: orderData.senderPhone, originAddress: orderData.originAddress,
+      receiverName: orderData.receiverName, receiverPhone: orderData.receiverPhone, destAddress: orderData.destAddress,
+      distanceKm: orderData.distanceKm, tier: orderData.tier, boxes: orderData.boxes, total: orderData.total,
+      items: orderData.items.map(function(i){ return { description: i.description, size: i.size, qty: i.qty }; })
+    }));
+
     renderParcelPendingScreen(orderData);
   } catch(error){
     alert("ส่งคำขอไม่สำเร็จ: " + error.message + "\n\nลองเช็คสัญญาณเน็ตแล้วกดส่งใหม่อีกครั้งได้เลยครับ");
@@ -759,12 +774,112 @@ function renderParcelPendingScreen(orderData){
         เมื่อแอดมินตรวจสลิปแล้ว ระบบจะแจ้งไรเดอร์ให้กดรับงานนี้ทันที เหมือนออเดอร์ส่งอาหาร
       </p>
 
-      <button class="confirm-btn" onclick="goHome()">กลับหน้าแรก</button>
+      <button class="confirm-btn" onclick="refreshParcelTracking()">🔄 เช็กสถานะล่าสุด</button>
+      <button style="background:#999;margin-top:10px;" onclick="goHome()">กลับหน้าแรก (ยังตามงานนี้ต่อได้ เปิดหน้านี้ใหม่อีกครั้งก็เห็น)</button>
     </div>
   `;
 }
 
-render();
+/** 🆕 หน้าติดตามงาน — ใช้ตอนกลับมาเปิดหน้านี้ใหม่ระหว่างที่ยังมีงานค้างอยู่ (ดึงสถานะสดจากเซิร์ฟเวอร์) */
+function renderParcelTrackingScreen(status, savedData){
+  const isDone = status.status === "ส่งสำเร็จ";
+  const hasRider = !!status.riderName;
+
+  let itemsHtml = "";
+  if(savedData && savedData.items){
+    savedData.items.forEach(function(i, idx){
+      itemsHtml += '<div class="receipt-item-row">';
+      itemsHtml += '<div class="photo-thumb-empty">📦</div>';
+      itemsHtml += '<div class="receipt-item-text">';
+      itemsHtml += '<b>ลังที่ ' + (idx + 1) + ':</b> ' + escapeHtml(i.description || "ไม่ระบุรายละเอียด") + '<br>';
+      itemsHtml += '<span style="font-size:12px;color:#8a6a79;">' + escapeHtml(i.size || "") + ' × ' + i.qty + ' ลัง</span>';
+      itemsHtml += '</div></div>';
+    });
+  }
+
+  document.getElementById("app").innerHTML = `
+    <div class="card success-box pending">
+      <div class="icon">${isDone ? "✅" : "⏳"}</div>
+      <h2>ติดตามงานรับ-ส่งของ</h2>
+      <div class="status-pill">${escapeHtml(status.status || "กำลังดำเนินการ")}</div>
+      <div class="order-id">หมายเลขออเดอร์ #${escapeHtml(status.parcelId)}</div>
+
+      ${hasRider ? `
+        <div class="receipt"><b>🛵 ไรเดอร์:</b> ${escapeHtml(status.riderName)} (${escapeHtml(status.riderPhone || "-")})</div>
+      ` : `
+        <div class="receipt" style="text-align:center;color:#8a6a79;">ยังไม่มีไรเดอร์รับงาน รอสักครู่นะครับ</div>
+      `}
+
+      ${savedData ? `
+        <div class="receipt">
+          <b>📍 ต้นทาง:</b> ${escapeHtml(savedData.senderName)} (${escapeHtml(savedData.senderPhone)})<br>
+          ${escapeHtml(savedData.originAddress)}<br><br>
+          <b>🏁 ปลายทาง:</b> ${escapeHtml(savedData.receiverName)} (${escapeHtml(savedData.receiverPhone)})<br>
+          ${escapeHtml(savedData.destAddress)}<br><br>
+          <b>📏 ระยะทาง:</b> ${Number(savedData.distanceKm).toFixed(2)} กม. (${savedData.tier ? savedData.tier.label : ""})<br>
+          <b>💰 ยอดรวม:</b> ${Number(savedData.total).toLocaleString()} บาท
+        </div>
+        <div class="receipt" style="padding-top:6px;">${itemsHtml}</div>
+      ` : ``}
+
+      ${status.proofImageUrl ? `
+        <p style="font-weight:bold;margin-bottom:6px;">📸 รูปยืนยันการส่ง</p>
+        <img class="photo-thumb" style="width:160px;height:160px;" src="${escapeHtml(status.proofImageUrl)}">
+      ` : ``}
+
+      <button class="confirm-btn" onclick="refreshParcelTracking()">🔄 เช็กสถานะล่าสุด</button>
+      ${isDone
+        ? `<button style="background:#2ecc71;margin-top:10px;" onclick="clearTrackedParcel()">🆕 ทำรายการใหม่</button>`
+        : `<button style="background:#999;margin-top:10px;" onclick="goHome()">กลับหน้าแรก (ตามงานนี้ต่อได้)</button>`
+      }
+    </div>
+  `;
+}
+
+/** 🆕 เช็กสถานะล่าสุดจากเซิร์ฟเวอร์ แล้ววาดหน้าติดตามใหม่ */
+async function refreshParcelTracking(){
+  const savedId = localStorage.getItem(PARCEL_TRACK_KEY);
+  if(!savedId) return;
+  try {
+    const status = await apiGet('getParcelOrderStatus', { parcelId: savedId });
+    const savedDataRaw = localStorage.getItem(PARCEL_TRACK_DATA_KEY);
+    const savedData = savedDataRaw ? JSON.parse(savedDataRaw) : null;
+    renderParcelTrackingScreen(status, savedData);
+  } catch(error){
+    alert("เช็กสถานะไม่สำเร็จ ลองใหม่อีกครั้ง: " + error.message);
+  }
+}
+
+/** 🆕 เริ่มทำรายการใหม่ — เคลียร์งานที่ติดตามไว้ แล้วกลับไปหน้าฟอร์มเปล่า */
+function clearTrackedParcel(){
+  localStorage.removeItem(PARCEL_TRACK_KEY);
+  localStorage.removeItem(PARCEL_TRACK_DATA_KEY);
+  render();
+}
+
+/** 🆕 ตอนเปิดหน้านี้ — ถ้ามีงานค้างอยู่ใน localStorage ให้ไปหน้าติดตามเลยแทนฟอร์มเปล่า */
+async function initParcelPage(){
+  const savedId = localStorage.getItem(PARCEL_TRACK_KEY);
+  if(savedId){
+    try {
+      const status = await apiGet('getParcelOrderStatus', { parcelId: savedId });
+      if(status && status.parcelId){
+        const savedDataRaw = localStorage.getItem(PARCEL_TRACK_DATA_KEY);
+        const savedData = savedDataRaw ? JSON.parse(savedDataRaw) : null;
+        renderParcelTrackingScreen(status, savedData);
+        return;
+      }
+      // หา parcel นี้ไม่เจอแล้ว (เช่นข้อมูลเก่ามาก) เคลียร์ทิ้งแล้วไปฟอร์มปกติ
+      localStorage.removeItem(PARCEL_TRACK_KEY);
+      localStorage.removeItem(PARCEL_TRACK_DATA_KEY);
+    } catch(error){
+      // เน็ตมีปัญหาตอนเช็ค ไม่บล็อกผู้ใช้ ปล่อยไปหน้าฟอร์มปกติก่อน เดี๋ยวค่อยลองใหม่
+    }
+  }
+  render();
+}
+
+initParcelPage();
 
 </script>
 </body>
