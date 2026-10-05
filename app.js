@@ -723,7 +723,10 @@ function showPaymentQR(amount){
 // ============================================================
 // 🆕 ยืนยันออเดอร์ ผ่าน apiPost (แทน google.script.run)
 // ============================================================
+let isSubmittingOrder = false; // 🆕 กันลูกค้ากดปุ่มซ้ำรัวๆ ตอนรอ server ตอบ (เน็ตช้า) ทำให้ออเดอร์ซ้ำ
+
 async function confirmOrder(){
+  if(isSubmittingOrder){ return; } // 🆕 กำลังส่งอยู่แล้ว ไม่ต้องทำซ้ำแม้กดซ้ำมากี่ครั้งก็ตาม
   if(cart.length===0){ alert("ยังไม่มีสินค้า"); return; }
 
   let name = document.getElementById("customerName").value;
@@ -733,6 +736,16 @@ async function confirmOrder(){
   if(name==""){ alert("กรุณากรอกชื่อ"); return; }
   if(phone==""){ alert("กรุณากรอกเบอร์"); return; }
   if(lat=="" || lng==""){ alert("กรุณาปักหมุดตำแหน่งก่อน"); return; }
+
+  // 🆕 ล็อกปุ่มทันที — ปิดการกดซ้ำ + เปลี่ยนข้อความให้ลูกค้ารู้ว่ากำลังส่งอยู่ ไม่ต้องกดย้ำ
+  isSubmittingOrder = true;
+  const btn = document.getElementById("confirmOrderBtn");
+  let originalBtnText = "✅ ยืนยันออเดอร์";
+  if(btn){
+    originalBtnText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "⏳ กำลังส่งออเดอร์...";
+  }
 
   let itemsText = cart.map(function(item, index) {
     const qty = item.qty || 1;
@@ -777,7 +790,14 @@ async function confirmOrder(){
     document.getElementById("orderIdText").innerHTML = "หมายเลขออเดอร์: " + currentOrderId;
     switchTab("track");
     checkOrderStatus();
+    // 🆕 สำเร็จแล้ว ไม่ต้องปลดล็อกปุ่มคืน เพราะหน้าสลับไปแท็บติดตามแล้ว (ฟอร์มนี้จะถูกสร้างใหม่ตอนสั่งรอบหน้าอยู่แล้ว)
   } catch(error){
+    // 🆕 ส่งไม่สำเร็จ (เช่นเน็ตหลุด) ปลดล็อกปุ่มคืนให้กดส่งใหม่ได้
+    isSubmittingOrder = false;
+    if(btn){
+      btn.disabled = false;
+      btn.textContent = originalBtnText;
+    }
     alert("ส่งออเดอร์ไม่สำเร็จ: " + error.message);
   }
 }
