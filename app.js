@@ -1046,7 +1046,7 @@ function showMerchantPage(){
       <button onclick="getShopLocation()">ปักหมุดร้าน</button>
       <p id="shopLocationText">ยังไม่ได้ปักหมุดร้าน</p>
 
-      <button class="form-full" onclick="submitShopRegister()">ส่งใบสมัครร้านค้า</button>
+      <button id="submitShopRegisterBtn" class="form-full" onclick="submitShopRegister()">ส่งใบสมัครร้านค้า</button>
     </div>
 
     <div class="card">
@@ -1336,7 +1336,11 @@ function getShopLocation(){
   );
 }
 
+let isSubmittingShopRegister = false; // 🆕 กันกดปุ่ม "ส่งใบสมัครร้านค้า" ซ้ำรัวๆ ตอนรอ server ตอบ (เน็ตช้า/รอบีบอัดโลโก้)
+
 async function submitShopRegister(){
+  if(isSubmittingShopRegister){ return; } // 🆕 กำลังส่งอยู่แล้ว ไม่ต้องทำซ้ำแม้กดซ้ำมากี่ครั้งก็ตาม
+
   const name = document.getElementById("shopName").value;
   const phone = document.getElementById("shopPhone").value;
   const storeAddress = document.getElementById("storeAddress").value.trim();
@@ -1348,6 +1352,16 @@ async function submitShopRegister(){
   if (!name || !phone || !storeAddress || !category) { alert("กรุณากรอกข้อมูลร้านค้าให้ครบ"); return; }
   if(category === ""){ alert("กรุณากรอกหมวดร้าน"); return; }
   if(registerShopLat === "" || registerShopLng === ""){ alert("กรุณาปักหมุดร้านก่อน"); return; }
+
+  // 🆕 ล็อกปุ่มทันที — ปิดการกดซ้ำ + เปลี่ยนข้อความให้รู้ว่ากำลังส่งอยู่ (ครอบคลุมช่วงบีบอัดโลโก้ด้วย ไม่ใช่แค่ตอนยิง API)
+  isSubmittingShopRegister = true;
+  const shopRegisterBtn = document.getElementById("submitShopRegisterBtn");
+  let originalShopRegisterBtnText = "ส่งใบสมัครร้านค้า";
+  if(shopRegisterBtn){
+    originalShopRegisterBtnText = shopRegisterBtn.textContent;
+    shopRegisterBtn.disabled = true;
+    shopRegisterBtn.textContent = "⏳ กำลังส่งใบสมัคร...";
+  }
 
   // 🆕 ฟังก์ชันย่อยสำหรับยิงข้อมูลไปหลังบ้าน (แยกไว้เผื่อต้องรอบีบอัดโลโก้ก่อน)
   async function doRegister(logoBase64){
@@ -1363,8 +1377,15 @@ async function submitShopRegister(){
         "PIN: " + result.pin + "\n\n" +
         "กรุณาเก็บไว้ใช้เพิ่มสินค้า\nและรอแอดมินอนุมัติ"
       );
+      // 🆕 สมัครสำเร็จแล้ว ไม่ต้องปลดล็อกปุ่มคืน เพราะหน้าจะเปลี่ยนไปหน้าอื่นอยู่แล้ว (showCustomerHome ด้านล่าง)
       showCustomerHome();
     } catch(error){
+      // 🆕 ส่งไม่สำเร็จ (เช่นเน็ตหลุด) ปลดล็อกปุ่มคืนให้กดส่งใหม่ได้
+      isSubmittingShopRegister = false;
+      if(shopRegisterBtn){
+        shopRegisterBtn.disabled = false;
+        shopRegisterBtn.textContent = originalShopRegisterBtnText;
+      }
       alert("สมัครร้านไม่สำเร็จ: " + error.message);
     }
   }
