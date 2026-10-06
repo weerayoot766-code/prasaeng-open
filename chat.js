@@ -27,7 +27,7 @@
       "#chatuiBox{background:#fff;width:100%;max-width:520px;height:88vh;border-radius:18px 18px 0 0;display:flex;flex-direction:column;overflow:hidden}"+
       "#chatuiHead{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:#ff2d87;color:#fff;font-weight:800;font-size:16px}"+
       "#chatuiHead small{display:block;font-weight:400;font-size:12px;opacity:.9}"+
-      "#chatuiClose{background:rgba(255,255,255,.25);border:none;color:#fff;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer}"+
+      "#chatuiClose{background:rgba(255,255,255,.25);border:none;color:#fff;border-radius:50%;width:32px!important;height:32px;min-width:32px;padding:0!important;margin:0!important;font-size:18px;cursor:pointer;flex:0 0 32px}"+
       "#chatuiMsgs{flex:1;overflow-y:auto;padding:12px;background:#f6f6f8;display:flex;flex-direction:column;gap:8px}"+
       ".chatuiRow{display:flex;flex-direction:column;max-width:80%}"+
       ".chatuiRow.me{align-self:flex-end;align-items:flex-end}"+
@@ -37,9 +37,9 @@
       ".chatuiRow.other .chatuiBubble{background:#fff;color:#222;border:1px solid #e3e3e8;border-bottom-left-radius:4px}"+
       ".chatuiMeta{font-size:11px;color:#999;margin-top:2px}"+
       "#chatuiEmpty{text-align:center;color:#999;font-size:14px;margin:auto}"+
-      "#chatuiForm{display:flex;gap:8px;padding:10px;border-top:1px solid #eee;background:#fff}"+
-      "#chatuiInput{flex:1;border:1px solid #ddd;border-radius:20px;padding:10px 14px;font-size:15px;resize:none;max-height:90px;font-family:inherit}"+
-      "#chatuiSend{border:none;background:#ff2d87;color:#fff;border-radius:20px;padding:0 18px;font-weight:800;font-size:15px;cursor:pointer}"+
+      "#chatuiForm{display:flex;align-items:flex-end;gap:8px;padding:10px;border-top:1px solid #eee;background:#fff;box-sizing:border-box;width:100%}"+
+      "#chatuiInput{flex:1 1 auto;width:auto!important;min-width:0;box-sizing:border-box;margin:0!important;border:1px solid #ddd;border-radius:20px;padding:10px 14px;font-size:16px;resize:none;max-height:90px;font-family:inherit;background:#fff;color:#222}"+
+      "#chatuiSend{flex:0 0 auto;width:auto!important;min-width:64px;margin:0!important;border:none;background:#ff2d87;color:#fff;border-radius:20px;padding:10px 18px!important;font-weight:800;font-size:15px;cursor:pointer}"+
       "#chatuiSend:disabled{opacity:.5}"+
       "#chatuiErr{color:#d00;font-size:12px;padding:4px 12px;background:#fff;display:none}";
     document.head.appendChild(st);
