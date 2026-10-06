@@ -790,7 +790,13 @@ async function confirmOrder(){
     document.getElementById("orderIdText").innerHTML = "หมายเลขออเดอร์: " + currentOrderId;
     switchTab("track");
     checkOrderStatus();
-    // 🆕 สำเร็จแล้ว ไม่ต้องปลดล็อกปุ่มคืน เพราะหน้าสลับไปแท็บติดตามแล้ว (ฟอร์มนี้จะถูกสร้างใหม่ตอนสั่งรอบหน้าอยู่แล้ว)
+    // 🆕 สำเร็จแล้ว ปลดล็อกปุ่มคืนด้วย เผื่อลูกค้ากดย้อนกลับมาที่แท็บ "ตะกร้าที่สั่ง" อีกรอบ
+    // (เดิมปล่อยปุ่มค้างเป็น "⏳ กำลังส่งออเดอร์..." ตลอดไป ทำให้ดูเหมือนระบบค้าง/พัง ทั้งที่ออเดอร์ส่งสำเร็จแล้ว)
+    isSubmittingOrder = false;
+    if(btn){
+      btn.disabled = false;
+      btn.textContent = originalBtnText;
+    }
   } catch(error){
     // 🆕 ส่งไม่สำเร็จ (เช่นเน็ตหลุด) ปลดล็อกปุ่มคืนให้กดส่งใหม่ได้
     isSubmittingOrder = false;
@@ -1032,6 +1038,14 @@ function newOrder(){
     document.getElementById("slipFile").value = "";
   }
   isUploadingSlip = false; // 🆕 รีเซ็ตสถานะล็อกปุ่มส่งสลิป กันค้างจากออเดอร์ก่อนหน้า
+
+  // 🆕 เผื่อปุ่ม "ยืนยันออเดอร์" ค้างล็อกอยู่จากรอบก่อน (กันไว้อีกชั้น เผื่อหลุดมาจากจุดอื่น)
+  isSubmittingOrder = false;
+  const confirmBtnReset = document.getElementById("confirmOrderBtn");
+  if(confirmBtnReset){
+    confirmBtnReset.disabled = false;
+    confirmBtnReset.textContent = "✅ ยืนยันออเดอร์";
+  }
   toggleSlipSendBtn(); // 🆕 ล็อกปุ่มส่งสลิปกลับไปเป็นค่าเริ่มต้น (ยังไม่มีไฟล์) สำหรับออเดอร์ใหม่
 
   window.scrollTo(0,0);
