@@ -208,9 +208,9 @@
   <h3 id="payAmount"></h3>
   <img id="qrImage" style="width:260px; max-width:100%;">
   <p>สแกน QR เพื่อโอนเงิน</p>
-  <input type="file" id="slipFile" accept="image/*">
+  <input type="file" id="slipFile" accept="image/*" onchange="toggleSlipSendBtn()">
   <br><br>
-  <button onclick="uploadSlip()">📤 ส่งสลิป</button>
+  <button id="sendSlipBtn" onclick="uploadSlip()" disabled>📎 เลือกไฟล์แนบสลิปก่อน แล้วกดส่งสลิปตรงนี้</button>
 </div>
 
 <div id="statusBox" class="card" style="display:none;">

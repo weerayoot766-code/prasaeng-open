@@ -929,11 +929,37 @@ function copyPhone(phone){
   });
 }
 
+// 🆕 เปิด/ปิดปุ่ม "ส่งสลิป" ตามว่าเลือกไฟล์แล้วหรือยัง — กันลูกค้ากดส่งก่อนแนบไฟล์
+// (ปุ่มจะ disabled ไว้ตั้งแต่แรกในหน้า HTML อยู่แล้ว มาเปิดให้ตรงนี้ตอนเลือกไฟล์เสร็จ)
+function toggleSlipSendBtn(){
+  const file = document.getElementById("slipFile").files[0];
+  const btn = document.getElementById("sendSlipBtn");
+  if(!btn) return;
+  if(file){
+    btn.disabled = false;
+    btn.textContent = "📤 ส่งสลิป";
+  } else {
+    btn.disabled = true;
+    btn.textContent = "📎 เลือกไฟล์แนบสลิปก่อน แล้วกดส่งสลิปตรงนี้";
+  }
+}
+
+let isUploadingSlip = false; // 🆕 กันกดส่งสลิปซ้ำรัวๆ ตอนรอบีบอัดรูป/รอ server ตอบ
+
 function uploadSlip(){
+  if(isUploadingSlip){ return; } // 🆕 กำลังส่งอยู่แล้ว ไม่ต้องทำซ้ำ
   const file = document.getElementById("slipFile").files[0];
 
   if(!currentOrderId){ alert("ยังไม่มีหมายเลขออเดอร์"); return; }
   if(!file){ alert("กรุณาเลือกสลิปก่อน"); return; }
+
+  // 🆕 ล็อกปุ่มทันที ครอบคลุมตั้งแต่ช่วงบีบอัดรูปจนถึงส่งเสร็จ
+  isUploadingSlip = true;
+  const sendBtn = document.getElementById("sendSlipBtn");
+  if(sendBtn){
+    sendBtn.disabled = true;
+    sendBtn.textContent = "⏳ กำลังส่งสลิป...";
+  }
 
   // 🆕 บีบอัดรูปสลิปก่อนส่ง (เหมือนรูปสินค้า/โลโก้) — รูปสลิปจากกล้องมือถือมักมีขนาดใหญ่มาก
   // ถ้าส่งดิบๆ เต็มขนาด จะเสี่ยงส่งไม่สำเร็จเวลาเน็ตไม่นิ่ง (เจอปัญหานี้มาแล้วจริง)
@@ -953,7 +979,17 @@ function uploadSlip(){
         await apiPost('uploadSlipToTelegram', { orderId: currentOrderId, fileName: file.name, base64: base64 });
         alert("ส่งสลิปเรียบร้อย ✅");
         document.getElementById("slipFile").value = "";
+        isUploadingSlip = false;
+        if(sendBtn){
+          sendBtn.disabled = true; // 🆕 ยังไม่เลือกไฟล์ใหม่ เลยล็อกไว้ก่อนจนกว่าจะแนบรอบใหม่
+          sendBtn.textContent = "📎 เลือกไฟล์แนบสลิปก่อน แล้วกดส่งสลิปตรงนี้";
+        }
       } catch(error){
+        isUploadingSlip = false;
+        if(sendBtn){
+          sendBtn.disabled = false; // 🆕 ส่งไม่สำเร็จ ปลดล็อกให้กดส่งซ้ำได้ (ไฟล์เดิมยังอยู่)
+          sendBtn.textContent = "📤 ส่งสลิป";
+        }
         alert("ส่งสลิปไม่สำเร็จ: " + error.message + "\n\nลองเช็คสัญญาณเน็ตแล้วกดส่งใหม่อีกครั้งได้เลยครับ (ยังไม่ถูกส่งซ้ำ ไม่ต้องกังวล)");
       }
     };
@@ -995,6 +1031,8 @@ function newOrder(){
   if(document.getElementById("slipFile")){
     document.getElementById("slipFile").value = "";
   }
+  isUploadingSlip = false; // 🆕 รีเซ็ตสถานะล็อกปุ่มส่งสลิป กันค้างจากออเดอร์ก่อนหน้า
+  toggleSlipSendBtn(); // 🆕 ล็อกปุ่มส่งสลิปกลับไปเป็นค่าเริ่มต้น (ยังไม่มีไฟล์) สำหรับออเดอร์ใหม่
 
   window.scrollTo(0,0);
   switchTab("order");
