@@ -782,6 +782,21 @@ async function confirmOrder(){
     selectedCouponId = ""; // 🆕 เคลียร์คูปองที่เลือกไว้ (ถูกใช้ไปแล้ว)
     localStorage.removeItem("pd_currentShop");
     localStorage.removeItem("pd_cart");
+
+    // 🆕 เคลียร์ตะกร้า+ข้อมูลที่กรอกไว้ทันทีที่ส่งออเดอร์สำเร็จ (ไม่ใช่แค่ล้าง localStorage)
+    // เดิมถ้าลูกค้ากดย้อนกลับมาแท็บ "ตะกร้าที่สั่ง" จะยังเห็นสินค้า/ชื่อ/เบอร์/หมุดเดิมค้างอยู่ครบ
+    // พอปุ่มปลดล็อกแล้ว (แก้ไปรอบก่อน) เลยกดยืนยันซ้ำเป็นออเดอร์ใหม่ได้อีก ต้องเคลียร์ทิ้งด้วยเลย
+    cart = [];
+    lat = "";
+    lng = "";
+    deliveryFee = 0;
+    distanceKm = 0;
+    document.getElementById("customerName").value = "";
+    document.getElementById("customerPhone").value = "";
+    document.getElementById("customerAddress").value = "";
+    document.getElementById("locationStatus").innerHTML = "ยังไม่ได้ปักหมุด";
+    window.renderCart();
+
     currentOrderId = result.orderId;
     localStorage.setItem("pd_currentOrderId", currentOrderId); // 🆕 กันรีเฟรชแล้วหลุดการติดตาม
     showPaymentQR(finalAmount);
