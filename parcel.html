@@ -356,6 +356,7 @@ button.confirm-btn:disabled{
 </div>
 
 <script src="api.js"></script>
+<script src="chat.js"></script>
 <script>
 
 function escapeHtml(text){
@@ -976,6 +977,15 @@ function renderParcelPendingScreen(orderData){
 }
 
 /** 🆕 หน้าติดตามงาน — ใช้ตอนกลับมาเปิดหน้านี้ใหม่ระหว่างที่ยังมีงานค้างอยู่ (ดึงสถานะสดจากเซิร์ฟเวอร์) */
+function openParcelChat(channel){
+  let orderId = localStorage.getItem(PARCEL_TRACK_KEY) || "";
+  let phone = "";
+  try{ phone = (JSON.parse(localStorage.getItem(PARCEL_TRACK_DATA_KEY) || "{}").senderPhone) || ""; }catch(e){}
+  if(!orderId){ alert("ยังไม่มีงานพัสดุให้แชท"); return; }
+  ChatUI.open({ role:"customer", orderId:orderId, channel:channel, phone:phone,
+    title: channel === "admin" ? "💬 แชทกับแอดมิน" : "💬 แชทกับไรเดอร์" });
+}
+
 function renderParcelTrackingScreen(status, savedData){
   const isDone = status.status === "ส่งสำเร็จ";
   const hasRider = !!status.riderName;
@@ -1040,6 +1050,12 @@ function renderParcelTrackingScreen(status, savedData){
         ? `<button style="background:#2ecc71;margin-top:10px;" onclick="clearTrackedParcel()">🆕 ทำรายการใหม่</button>`
         : `<button style="background:#999;margin-top:10px;" onclick="goHome()">กลับหน้าแรก (ตามงานนี้ต่อได้)</button>`
       }
+
+      <div style="margin-top:18px;padding-top:14px;border-top:1px dashed #f0cfdd;display:flex;flex-direction:column;gap:10px;">
+        <button onclick="openParcelChat('admin')" style="background:#ff2d87;width:100%;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:800;color:#fff;cursor:pointer;">💬 แชทหาแอดมิน</button>
+        ${hasRider && !isDone ? `
+        <button onclick="openParcelChat('rider')" style="background:#0d9488;width:100%;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:800;color:#fff;cursor:pointer;">💬 แชทหาไรเดอร์</button>` : ``}
+      </div>
     </div>
   `;
 

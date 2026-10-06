@@ -799,6 +799,7 @@ async function confirmOrder(){
 
     currentOrderId = result.orderId;
     localStorage.setItem("pd_currentOrderId", currentOrderId); // 🆕 กันรีเฟรชแล้วหลุดการติดตาม
+    localStorage.setItem("pd_currentOrderPhone", phone); // ใช้ยืนยันตัวตนในแชท
     showPaymentQR(finalAmount);
     document.getElementById("statusBox").style.display = "block";
     document.getElementById("trackEmptyState").style.display = "none";
@@ -836,6 +837,12 @@ async function checkOrderStatus(){
     if(data == null){ alert("ไม่พบออเดอร์"); return; }
 
     document.getElementById("statusText").innerHTML = "สถานะ: " + data.status;
+
+    // 🆕 ปุ่ม "ส่งข้อความหาไรเดอร์" — โชว์เฉพาะตอนมีไรเดอร์รับงานแล้ว และงานยังไม่จบ (เปิดแอปข้อความของเครื่อง/SMS)
+    const chatRiderBtn = document.getElementById("chatRiderBtn");
+    if(chatRiderBtn){
+      chatRiderBtn.style.display = (data.riderName != "" && data.riderPhone && data.status != "ส่งสำเร็จ") ? "block" : "none";
+    }
 
     if(data.status == "ส่งสำเร็จ"){
       document.getElementById("paymentBox").style.display = "none";
@@ -1027,6 +1034,7 @@ function newOrder(){
   distanceKm = 0;
   currentOrderId = "";
   localStorage.removeItem("pd_currentOrderId"); // 🆕 ล้างค่าเก่าออกตอนเริ่มออเดอร์ใหม่
+  localStorage.removeItem("pd_currentOrderPhone");
 
   document.getElementById("cart").innerHTML = '<div class="cart-empty">ยังไม่มีสินค้าในตะกร้า</div>';
   document.getElementById("sumProduct").innerText = "0 บาท";
@@ -1723,4 +1731,17 @@ function renderAdSlider(ads, trackId){
       }, 600);
     }
   }, 3000);
+}
+
+
+// 💬 แชทสด: เปิดห้องแชทของออเดอร์ที่กำลังติดตาม (channel = 'admin' | 'rider')
+function openOrderChat(channel){
+  if(!currentOrderId){ alert("ยังไม่มีออเดอร์ให้แชท"); return; }
+  ChatUI.open({
+    role: "customer",
+    orderId: currentOrderId,
+    channel: channel,
+    phone: localStorage.getItem("pd_currentOrderPhone") || "",
+    title: channel === "admin" ? "💬 แชทกับแอดมิน" : "💬 แชทกับไรเดอร์"
+  });
 }

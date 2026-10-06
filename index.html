@@ -227,6 +227,11 @@
   <button onclick="checkOrderStatus()">🔄 เช็กสถานะ</button>
   <br><br>
   <button onclick="newOrder()">🆕 สั่งสินค้าใหม่</button>
+
+  <div style="margin-top:18px;padding-top:14px;border-top:1px dashed #f0cfdd;display:flex;flex-direction:column;gap:10px;">
+    <button style="background:#ff2d87;width:100%;" onclick="openOrderChat('admin')">💬 แชทหาแอดมิน</button>
+    <button id="chatRiderBtn" style="background:#0d9488;width:100%;display:none;" onclick="openOrderChat('rider')">💬 แชทหาไรเดอร์</button>
+  </div>
 </div>
 
 </div> <!-- ปิด tabpage-track -->
@@ -300,6 +305,7 @@
 </div> <!-- ปิด tabpage-contact -->
 
 <script src="api.js"></script>
+<script src="chat.js"></script>
 <script src="app.js"></script>
 
 </body>

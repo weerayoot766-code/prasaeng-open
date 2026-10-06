@@ -76,7 +76,17 @@ button{width:100%;background:#ff6b00;color:white;border:none;border-radius:10px;
   <p id="shareLocationStatus" style="text-align:center;font-size:13px;color:#888;margin-top:10px;"></p>
 </div>
 
+<div class="card" style="margin-top:16px;">
+  <h2>💬 แชทกับลูกค้า</h2>
+  <p style="font-size:14px;color:#666;text-align:center;">ดูข้อความที่ลูกค้าส่งถึงคุณ แล้วตอบได้ที่นี่</p>
+  <label>เบอร์โทรไรเดอร์ (เบอร์ที่ใช้สมัคร)</label>
+  <input id="chatRiderPhone" placeholder="เช่น 0812345678">
+  <button onclick="loadRiderChats()">🔄 โหลดห้องแชทของฉัน</button>
+  <div id="riderChatList" style="margin-top:12px;"></div>
+</div>
+
 <script src="api.js"></script>
+<script src="chat.js"></script>
 <script>
 
 function goBack(){
@@ -275,6 +285,29 @@ function showConnectStep(riderId){
     </div>
   `;
 }
+
+
+// 💬 แชทกับลูกค้า (ฝั่งไรเดอร์)
+async function loadRiderChats(){
+  const phone = document.getElementById("chatRiderPhone").value.trim();
+  const box = document.getElementById("riderChatList");
+  if(!phone){ alert("กรุณากรอกเบอร์โทรไรเดอร์"); return; }
+  try{ localStorage.setItem("pd_riderChatPhone", phone); }catch(e){}
+  box.innerHTML = "กำลังโหลด...";
+  try{
+    const data = await apiGet("chatListThreads", { role:"rider", phone:phone });
+    if(!data.threads.length){ box.innerHTML = '<p style="text-align:center;color:#888;font-size:14px;">ยังไม่มีข้อความจากลูกค้า</p>'; return; }
+    box.innerHTML = data.threads.map(function(t){
+      const who = t.lastSender === "customer" ? "ลูกค้า: " : "คุณ: ";
+      return '<button style="background:#0d9488;text-align:left;margin-top:8px;width:100%;" data-oid="'+escHtmlR(t.orderId)+'">💬 งาน '+escHtmlR(t.orderId)+'<br><small style="font-weight:400;">'+who+escHtmlR(String(t.lastText).slice(0,60))+'</small></button>';
+    }).join("");
+    box.querySelectorAll("button[data-oid]").forEach(function(b){
+      b.onclick = function(){ ChatUI.open({ role:"rider", orderId:b.getAttribute("data-oid"), channel:"rider", phone:phone, title:"💬 แชทกับลูกค้า" }); };
+    });
+  }catch(err){ box.innerHTML = '<p style="color:#d00;text-align:center;font-size:14px;">'+escHtmlR(err.message||err)+'</p>'; }
+}
+function escHtmlR(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+(function(){ try{ const v=localStorage.getItem("pd_riderChatPhone"); if(v){ const el=document.getElementById("chatRiderPhone"); if(el) el.value=v; } }catch(e){} })();
 
 </script>
 
