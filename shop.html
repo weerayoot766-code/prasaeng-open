@@ -29,6 +29,7 @@ input,select,textarea{ width:100%; padding:12px; border-radius:10px; border:1px 
 .prod-row img{ width:60px; height:60px; object-fit:cover; border-radius:8px; background:#f5f5f5; }
 .prod-row .info{ flex:1; }
 .prod-row .edit-btn{ width:auto; background:#ff9900; margin:0; font-size:12px; padding:8px 10px; }
+.prod-row .delete-btn{ width:auto; background:#e53935; margin:0; font-size:12px; padding:8px 10px; }
 .prod-row-out{ opacity:.6; background:#faf5f5; }
 .stock-toggle-btn{ width:auto; margin:0; font-size:11px; padding:8px 10px; white-space:nowrap; border:none; border-radius:8px; cursor:pointer; }
 .stock-toggle-btn.in-stock{ background:#e6f9ee; color:#1a9c52; }
@@ -304,7 +305,10 @@ function renderMyProducts(products){
           '<span style="color:#888;font-size:13px;">สถานะ: ' + escapeHtml(p.status || "") + '</span>' +
         '</div>' +
         '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">' +
-          '<button class="edit-btn" onclick="startEditProduct(' + p.rowIndex + ')">✏️ แก้ไข</button>' +
+          '<div style="display:flex;gap:6px;">' +
+            '<button class="edit-btn" onclick="startEditProduct(' + p.rowIndex + ')">✏️ แก้ไข</button>' +
+            '<button class="delete-btn" onclick="deleteMyProduct(' + p.rowIndex + ')">🗑️ ลบ</button>' +
+          '</div>' +
           '<button class="stock-toggle-btn ' + (inStock ? 'in-stock' : 'out-stock') + '" onclick="toggleProductStock(' + p.rowIndex + ', ' + inStock + ')">' +
             (inStock ? '🟢 มีสินค้า' : '🔴 หมดชั่วคราว') +
           '</button>' +
@@ -323,6 +327,28 @@ async function toggleProductStock(rowIndex, currentlyInStock){
     loadDashboard();
   } catch(error){
     alert("อัปเดตไม่สำเร็จ: " + error.message);
+  }
+}
+
+/** 🗑️ ลบเมนูอาหาร (ถามยืนยันก่อน, กันกดซ้ำ) */
+let isDeletingProduct = false;
+async function deleteMyProduct(rowIndex){
+  if(isDeletingProduct) return;
+  const p = myProductsCache[rowIndex];
+  if(!p){ alert("ไม่พบสินค้า กรุณารีเฟรชหน้า"); return; }
+  if(!confirm('ต้องการลบเมนู "' + p.name + '" ใช่ไหม?\nลบแล้วกู้คืนไม่ได้')) return;
+  isDeletingProduct = true;
+  const row = document.getElementById("prodRow_" + rowIndex);
+  if(row) row.style.opacity = "0.5";
+  try {
+    const res = await apiPost('deleteProduct', { rowIndex: rowIndex, productName: p.name, storeId: currentStoreId, pin: currentPin });
+    if(!res.success){ alert(res.message || "ลบไม่สำเร็จ"); if(row) row.style.opacity = ""; }
+    else { loadDashboard(); }
+  } catch(error){
+    alert("ลบไม่สำเร็จ: " + error.message);
+    if(row) row.style.opacity = "";
+  } finally {
+    isDeletingProduct = false;
   }
 }
 
