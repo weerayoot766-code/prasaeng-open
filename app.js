@@ -204,20 +204,82 @@ function escapeHtml(text){
 // 🆕 โหลดสินค้า + ร้านค้า ผ่าน API (แทน google.script.run เดิม)
 // ============================================================
 async function loadProducts(){
-  // 🆕 ยิงทั้งสองคำขอพร้อมกันเลย (ไม่รอตัวแรกเสร็จก่อน) ลดเวลารวมจาก "บวกกัน" เหลือแค่ "เท่าตัวที่ช้าที่สุด"
+  // 🆕 โหลดแบบ "โชว์ของเก่าก่อน แล้วอัปเดตเบื้องหลัง" — เปิดแอปครั้งที่สองเป็นต้นไป ร้าน/สินค้าขึ้นทันที
+  // ไม่ต้องรอ Apps Script ตอบ (ซึ่งช้าได้หลายวินาที) แล้วค่อยเอาข้อมูลล่าสุดมาแทนเมื่อโหลดเสร็จ
+  const CACHE_KEY = "pd_catalogCache";
+  const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+  let cached = null;
+  try {
+    const raw = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+    if(raw && Array.isArray(raw.products) && Array.isArray(raw.stores) && raw.products.length > 0 &&
+       (Date.now() - Number(raw.ts || 0)) < CACHE_MAX_AGE_MS){
+      cached = raw;
+    }
+  } catch(e){ cached = null; }
+
+  // ยิงทั้งสองคำขอพร้อมกันเลย (ไม่รอตัวแรกเสร็จก่อน) ลดเวลารวมจาก "บวกกัน" เหลือแค่ "เท่าตัวที่ช้าที่สุด"
+  let productsFailed = false;
   const productsPromise = apiGet('getProducts').catch(function(error){
-    const box = document.getElementById("productList");
-    if(box){ box.innerHTML = "โหลดสินค้าไม่สำเร็จ: " + error.message; }
+    productsFailed = true;
+    if(!cached){
+      const box = document.getElementById("productList");
+      if(box){ box.innerHTML = "โหลดสินค้าไม่สำเร็จ: " + error.message; }
+    }
     return [];
   });
+  let storesFailed = false;
   const storesPromise = apiGet('getApprovedStores').catch(function(){
+    storesFailed = true;
     return [];
   });
+  const freshPromise = Promise.all([productsPromise, storesPromise]);
 
-  const results = await Promise.all([productsPromise, storesPromise]);
-  window.productsData = results[0] || [];
-  window.storesData = results[1] || [];
+  if(cached){
+    // 1) โชว์ข้อมูลที่เคยโหลดไว้ทันที
+    window.productsData = cached.products;
+    window.storesData = cached.stores;
+    restoreViewOrHome();
+    renderHomeRecommendedGrid();
+    renderHomeShopGrid();
+  }
 
+  const results = await freshPromise;
+  const freshProducts = results[0] || [];
+  const freshStores = results[1] || [];
+  const loadedOk = !productsFailed && !storesFailed;
+
+  // เก็บข้อมูลล่าสุดไว้ใช้ครั้งหน้า (เก็บเฉพาะตอนโหลดสำเร็จครบทั้งสองอย่าง)
+  if(loadedOk && freshProducts.length > 0){
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), products: freshProducts, stores: freshStores }));
+    } catch(e){ /* เต็ม/ใช้ไม่ได้ ก็ข้ามไป */ }
+  }
+
+  if(!cached){
+    // ไม่เคยมีข้อมูลเก่า = โหลดครั้งแรก ใช้ข้อมูลใหม่ตามปกติ
+    window.productsData = freshProducts;
+    window.storesData = freshStores;
+    restoreViewOrHome();
+    renderHomeRecommendedGrid();
+    renderHomeShopGrid();
+    return;
+  }
+
+  // มีของเก่าโชว์ไปแล้ว → สลับเป็นของใหม่ "เฉพาะเมื่อปลอดภัย" และข้อมูลเปลี่ยนจริง
+  if(!loadedOk) return;
+  if(JSON.stringify(freshProducts) === JSON.stringify(cached.products) &&
+     JSON.stringify(freshStores) === JSON.stringify(cached.stores)) return;
+
+  const modal = document.getElementById("qtyModalOverlay");
+  const modalOpen = modal && modal.style.display === "flex";
+  const searchBox = document.getElementById("searchBox");
+  const searching = searchBox && searchBox.value.trim() !== "";
+  // ถ้าลูกค้าเริ่มใส่ของในตะกร้า/เปิดหน้าต่างเลือกเมนู/กำลังค้นหาอยู่ ห้ามวาดหน้าใหม่ทับ (ปุ่มเมนูอ้างอิงลำดับในรายการเดิม)
+  // ข้อมูลใหม่ถูกเก็บไว้แล้ว จะขึ้นในการเปิดแอปครั้งถัดไป
+  if(cart.length > 0 || modalOpen || searching) return;
+
+  window.productsData = freshProducts;
+  window.storesData = freshStores;
   restoreViewOrHome();
   renderHomeRecommendedGrid();
   renderHomeShopGrid();
