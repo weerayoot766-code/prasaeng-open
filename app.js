@@ -113,6 +113,7 @@ function openQtyModal(index){
   document.getElementById("qtyModalPrice").innerText = Number(product.price) + " บาท / รายการ";
   document.getElementById("qtyModalDesc").innerText = product.description || "";
   document.getElementById("qtyModalCount").innerText = pendingQty;
+  document.getElementById("itemNoteInput").value = ""; // 🆕 โน้ตถึงร้าน ล้างทุกครั้งที่เปิดเมนูใหม่
 
   // 🆕 เฉพาะหมวด "เครื่องดื่ม" เท่านั้น ที่โชว์ตัวเลือกหวาน/แยกน้ำ/Blue Card
   const isDrink = product.category === "เครื่องดื่ม";
@@ -173,17 +174,21 @@ function confirmAddToCart(){
     blueCard: (document.getElementById("blueCardInput").value.trim() || DEFAULT_BLUE_CARD_)
   } : null;
 
-  // 🆕 รวมรายการซ้ำได้เฉพาะที่ตัวเลือกตรงกันทุกอย่างเป๊ะๆ เท่านั้น (หวานคนละระดับ = แยกรายการ)
+  // 🆕 โน้ตถึงร้าน (ทุกหมวด) — ตัดบรรทัดใหม่ให้เป็นบรรทัดเดียว จำกัด 120 ตัวอักษร
+  const note = (document.getElementById("itemNoteInput").value || "").replace(/\s+/g, " ").trim().slice(0, 120);
+
+  // 🆕 รวมรายการซ้ำได้เฉพาะที่ตัวเลือกและโน้ตตรงกันทุกอย่างเป๊ะๆ เท่านั้น (หวานคนละระดับ/โน้ตต่างกัน = แยกรายการ)
   const existing = cart.find(function(item){
     return item.name === product.name &&
       Number(item.price) === Number(product.price) &&
-      JSON.stringify(item.options || null) === JSON.stringify(options);
+      JSON.stringify(item.options || null) === JSON.stringify(options) &&
+      (item.note || "") === note;
   });
 
   if(existing){
     existing.qty += pendingQty;
   } else {
-    cart.push({ name: product.name, price: Number(product.price), qty: pendingQty, options: options });
+    cart.push({ name: product.name, price: Number(product.price), qty: pendingQty, options: options, note: note });
   }
   closeQtyModal();
   window.renderCart();
@@ -625,6 +630,9 @@ window.renderCart = function(){
         ' · 🧊 ' + escapeHtml(item.options.waterStyle) +
         ' · 💳 ' + escapeHtml(item.options.blueCard) + '</div>';
     }
+    if(item.note){ // 🆕 โน้ตถึงร้าน
+      optionsLine += '<div class="cart-item-options">📝 ' + escapeHtml(item.note) + '</div>';
+    }
     html += `
       <div class="cart-item">
         <div class="cart-item-index">${index+1}</div>
@@ -752,6 +760,9 @@ async function confirmOrder(){
     let line = (index + 1) + ". " + item.name + " x" + qty + " - " + (Number(item.price) * qty) + " บาท";
     if(item.options){ // 🆕 แนบตัวเลือกที่ลูกค้าเลือกไว้ ให้ร้านชงถูก
       line += "\n    🍬 หวาน " + item.options.sweetness + " | 🧊 " + item.options.waterStyle + " | 💳 Blue Card: " + item.options.blueCard;
+    }
+    if(item.note){ // 🆕 โน้ตจากลูกค้าถึงร้าน
+      line += "\n    📝 โน้ต: " + item.note;
     }
     return line;
   }).join("\n");
