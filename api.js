@@ -55,3 +55,27 @@ async function apiPost(action, payload = {}) {
   if (!json.ok) throw new Error(json.error);
   return json.data;
 }
+
+/**
+ * 📊 นับคนเปิดแอป — ส่งสัญญาณเงียบๆ ไป Apps Script (ไม่เก็บชื่อ/เบอร์ ใช้รหัสสุ่มต่อเครื่อง)
+ * นับสูงสุด 1 ครั้งต่อเครื่องทุก 30 นาที (เปิดหลายหน้า/รีเฟรชไม่ถูกนับซ้ำ) และไม่นับหน้าแอดมิน
+ */
+(function trackVisitOnce(){
+  try {
+    var path = (location.pathname || '').split('/').pop() || 'index.html';
+    if (path.indexOf('admin') !== -1) return;
+    var vid = localStorage.getItem('pd_vid');
+    if (!vid) {
+      vid = 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      localStorage.setItem('pd_vid', vid);
+    }
+    var lastPing = Number(localStorage.getItem('pd_lastVisitPing') || 0);
+    if (Date.now() - lastPing < 30 * 60 * 1000) return;
+    localStorage.setItem('pd_lastVisitPing', String(Date.now()));
+    fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'trackVisit', vid: vid, page: path }),
+      keepalive: true,
+    }).catch(function () {});
+  } catch (e) { /* ห้ามให้การนับทำให้แอปพัง */ }
+})();
