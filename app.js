@@ -1745,3 +1745,17 @@ function openOrderChat(channel){
     title: channel === "admin" ? "💬 แชทกับแอดมิน" : "💬 แชทกับไรเดอร์"
   });
 }
+
+
+/** 📊 โชว์ "วันนี้มีคนเปิดใช้งานแล้ว X ครั้ง" บนหน้าแรก — เซิร์ฟเวอร์ส่งตัวเลขมาเฉพาะเมื่อเกิน 20 */
+async function showVisitBadge(){
+  try {
+    const data = await apiGet('getVisitStats', {});
+    const el = document.getElementById("visitBadge");
+    if(el && data && data.today){
+      el.textContent = "🔥 วันนี้มีคนเปิดใช้งานแล้ว " + Number(data.today).toLocaleString("th-TH") + " ครั้ง";
+      el.style.display = "block";
+    }
+  } catch(e){ /* ไม่โชว์ถ้าโหลดไม่ได้ ไม่กระทบแอป */ }
+}
+showVisitBadge();
