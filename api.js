@@ -72,10 +72,13 @@ async function apiPost(action, payload = {}) {
     var lastPing = Number(localStorage.getItem('pd_lastVisitPing') || 0);
     if (Date.now() - lastPing < 30 * 60 * 1000) return;
     localStorage.setItem('pd_lastVisitPing', String(Date.now()));
-    fetch(API_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'trackVisit', vid: vid, page: path }),
-      keepalive: true,
-    }).catch(function () {});
+    // เลื่อนไปส่งทีหลัง 4 วินาที ให้การโหลดร้าน/สินค้าไปก่อน (ไม่แย่งหลังบ้านกัน)
+    setTimeout(function () {
+      fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'trackVisit', vid: vid, page: path }),
+        keepalive: true,
+      }).catch(function () {});
+    }, 4000);
   } catch (e) { /* ห้ามให้การนับทำให้แอปพัง */ }
 })();

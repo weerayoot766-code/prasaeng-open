@@ -1758,4 +1758,5 @@ async function showVisitBadge(){
     }
   } catch(e){ /* ไม่โชว์ถ้าโหลดไม่ได้ ไม่กระทบแอป */ }
 }
-showVisitBadge();
+// เลื่อนไปโหลดทีหลัง ให้ร้าน/สินค้าขึ้นก่อน
+setTimeout(showVisitBadge, 5000);
