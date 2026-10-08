@@ -234,6 +234,16 @@ async function loadProducts(){
   });
   const freshPromise = Promise.all([productsPromise, storesPromise]);
 
+  // 🆕 รายการร้าน (เล็ก/เร็ว) ไม่ต้องรอสินค้า (ก้อนใหญ่) — ร้านมาถึงเมื่อไรก็วาดบล็อก "ร้านแนะนำ/ร้านขายดี" ทันที
+  if(!cached){
+    storesPromise.then(function(stores){
+      if(storesFailed || !Array.isArray(stores) || stores.length === 0) return;
+      window.storesData = stores;
+      renderHomeRecommendedGrid();
+      renderHomeShopGrid();
+    });
+  }
+
   if(cached){
     // 1) โชว์ข้อมูลที่เคยโหลดไว้ทันที
     window.productsData = cached.products;
