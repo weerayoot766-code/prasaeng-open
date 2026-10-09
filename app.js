@@ -1314,11 +1314,15 @@ function submitNewProduct(){
         }
         const shop = result.storeName;
 
-        await apiPost('submitProduct', {
+        const sp = await apiPost('submitProduct', {
           data: { shop: shop, category: category, name: name, price: price, image: image, description: description }
         });
 
-        alert("ส่งเมนูแล้ว ✅ รอแอดมินอนุมัติ");
+        if(sp && sp.imageOk === false){
+          alert("บันทึกเมนูแล้ว ⚠️ แต่รูปอัปโหลดไม่สำเร็จ\nกรุณาเข้า 'จัดการร้านค้า' กด ✏️ แก้ไข แล้วอัปรูปใหม่อีกครั้ง");
+        } else {
+          alert("ส่งเมนูแล้ว ✅ รอแอดมินอนุมัติ");
+        }
         document.getElementById("productName").value = "";
         document.getElementById("productPrice").value = "";
         document.getElementById("productImageFile").value = "";

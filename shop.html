@@ -246,7 +246,9 @@ function submitLogo(){
   reader.readAsDataURL(file);
 }
 
+let isSubmittingProduct = false;
 function submitNewProduct(){
+  if(isSubmittingProduct) return;
   const category = document.getElementById("productCategory").value;
   const name = document.getElementById("productName").value;
   const price = document.getElementById("productPrice").value;
@@ -256,6 +258,7 @@ function submitNewProduct(){
   if(name === ""){ alert("กรุณากรอกชื่อสินค้า"); return; }
   if(price === ""){ alert("กรุณากรอกราคา"); return; }
   if(!file){ alert("กรุณาเลือกรูปสินค้า"); return; }
+  isSubmittingProduct = true;
 
   const reader = new FileReader();
   reader.onload = function(e){
@@ -271,15 +274,22 @@ function submitNewProduct(){
       const image = canvas.toDataURL("image/jpeg", 0.6);
 
       try {
-        await apiPost('submitProduct', {
+        const sp = await apiPost('submitProduct', {
           data: { shop: currentStoreName, category: category, name: name, price: price, image: image, description: description }
         });
-        alert("ส่งเมนูแล้ว ✅ รอแอดมินอนุมัติ");
+        if(sp && sp.imageOk === false){
+          alert("บันทึกเมนูแล้ว ⚠️ แต่รูปอัปโหลดไม่สำเร็จ\nกรุณากด ✏️ แก้ไข ที่เมนูนี้ แล้วอัปรูปใหม่อีกครั้ง");
+        } else {
+          alert("ส่งเมนูแล้ว ✅ รอแอดมินอนุมัติ");
+        }
         loadDashboard();
       } catch(error){
         alert("ส่งเมนูไม่สำเร็จ: " + error.message);
+      } finally {
+        isSubmittingProduct = false;
       }
     };
+    img.onerror = function(){ isSubmittingProduct = false; alert("อ่านรูปไม่ได้ ลองเลือกรูปอื่น"); };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
