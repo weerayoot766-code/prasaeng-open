@@ -164,6 +164,16 @@ function renderDashboard(result){
   html += result.isOpen ? '🟢 ร้านเปิดอยู่ — กดเพื่อปิดร้าน' : '🔴 ร้านปิดอยู่ — กดเพื่อเปิดร้าน';
   html += '</div>';
 
+  // 🆕 เชื่อมแจ้งเตือนออเดอร์ผ่าน LINE OA
+  const lineCmd = 'ผูก ' + currentStoreId + ' ' + currentPin;
+  html += '<div class="card"><h2>🔔 แจ้งเตือนออเดอร์ทาง LINE</h2>';
+  html += '<p style="color:#666;font-size:14px;line-height:1.6;">เมื่อลูกค้าชำระเงินและแอดมินตรวจสลิปผ่านแล้ว ระบบจะส่งรายละเอียดออเดอร์เข้า LINE ของคุณ<br>';
+  html += '1) กดปุ่มเพิ่มเพื่อน LINE ด้านล่าง<br>2) คัดลอกข้อความนี้ไปพิมพ์ส่งในแชทนั้น:</p>';
+  html += '<input id="lineCmdBox" readonly value="' + escapeHtml(lineCmd) + '" onclick="this.select()" style="text-align:center;font-weight:bold;">';
+  html += '<button onclick="copyLineCmd()" style="background:#888;margin-bottom:8px;">📋 คัดลอกข้อความ</button>';
+  html += '<button onclick="window.open(\'https://line.me/R/ti/p/@138kkxmm\', \'_blank\')" style="background:#06c755;">➕ เพิ่มเพื่อน LINE พระแสงเดลิเวอรี่</button>';
+  html += '</div>';
+
   // 🆕 ปุ่มโปรโมทร้าน — พาไปหน้าเรทโฆษณา
   html += '<button onclick="window.location.href=\'ads.html\'" style="background:linear-gradient(135deg,#ffb703,#fb8500);margin-bottom:10px;">📢 โปรโมทร้าน</button>';
 
@@ -244,6 +254,16 @@ function submitLogo(){
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+function copyLineCmd(){
+  const box = document.getElementById("lineCmdBox");
+  if(!box) return;
+  box.select();
+  try {
+    if(navigator.clipboard){ navigator.clipboard.writeText(box.value); } else { document.execCommand("copy"); }
+    alert("คัดลอกแล้ว ✅ นำไปวางในแชท LINE");
+  } catch(e){ alert("กรุณากดค้างที่ช่องข้อความแล้วคัดลอกเอง"); }
 }
 
 let isSubmittingProduct = false;
