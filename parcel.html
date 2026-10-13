@@ -817,13 +817,65 @@ function confirmParcelOrder(){
   showQrPayment(total, pendingParcelOrder);
 }
 
+// 🆕 QR PromptPay สร้างในเครื่องลูกค้าเอง (ไม่พึ่ง promptpay.io ที่ล่ม/ช้าได้) — ถ้าไม่สำเร็จถอยไปใช้ promptpay.io
+function ppField_(id, val){ return id + ("0" + val.length).slice(-2) + val; }
+function ppCrc16_(s){
+  let crc = 0xFFFF;
+  for(let i = 0; i < s.length; i++){
+    crc ^= s.charCodeAt(i) << 8;
+    for(let j = 0; j < 8; j++){ crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1); crc &= 0xFFFF; }
+  }
+  return ("0000" + crc.toString(16).toUpperCase()).slice(-4);
+}
+function buildPromptPayPayload(phone, amount){
+  let digits = String(phone).replace(/\D/g, "");
+  if(digits.length === 10 && digits.charAt(0) === "0"){ digits = "66" + digits.substring(1); }
+  const target = ("0000000000000" + digits).slice(-13);
+  const amt = Number(amount);
+  const hasAmt = isFinite(amt) && amt > 0;
+  const data = [
+    ppField_("00", "01"),
+    ppField_("01", hasAmt ? "12" : "11"),
+    ppField_("29", ppField_("00", "A000000677010111") + ppField_("01", target)),
+    ppField_("58", "TH"),
+    ppField_("53", "764")
+  ];
+  if(hasAmt){ data.push(ppField_("54", amt.toFixed(2))); }
+  const body = data.join("") + "6304";
+  return body + ppCrc16_(body);
+}
+let qrLibPromise_ = null;
+function loadQrLib_(){
+  if(window.qrcode){ return Promise.resolve(); }
+  if(!qrLibPromise_){
+    qrLibPromise_ = new Promise(function(resolve, reject){
+      const s = document.createElement("script");
+      s.src = "qrcode.min.js";
+      s.onload = resolve;
+      s.onerror = function(){ qrLibPromise_ = null; reject(new Error("โหลดตัวสร้าง QR ไม่สำเร็จ")); };
+      document.head.appendChild(s);
+    });
+  }
+  return qrLibPromise_;
+}
+function fillParcelQr_(amount){
+  const img = document.getElementById("parcelQrImg");
+  if(!img) return;
+  const fallbackToWeb = function(){ img.src = "https://promptpay.io/" + promptPayId + "/" + Number(amount).toFixed(2) + ".png"; };
+  loadQrLib_().then(function(){
+    const qr = window.qrcode(0, "M");
+    qr.addData(buildPromptPayPayload(promptPayId, amount));
+    qr.make();
+    img.src = qr.createDataURL(10, 4);
+  }).catch(fallbackToWeb);
+}
+
 function showQrPayment(amount, orderData){
-  const qrUrl = "https://promptpay.io/" + promptPayId + "/" + amount + ".png";
   slipDataUrl = "";
   document.getElementById("app").innerHTML = `
     <div class="card qr-box">
       <h2 style="color:var(--rose-dark);margin-top:0;">💳 สแกนจ่ายค่าบริการ</h2>
-      <img src="${qrUrl}" alt="QR พร้อมเพย์">
+      <img id="parcelQrImg" alt="QR พร้อมเพย์">
       <div class="qr-amount">${amount.toLocaleString()} บาท</div>
       <div class="qr-hint">ระยะทางประมาณ ${orderData.distanceKm.toFixed(2)} กม. · ${orderData.boxes} ลัง (${orderData.tier.label})</div>
 
@@ -840,6 +892,7 @@ function showQrPayment(amount, orderData){
       <button class="confirm-btn" id="paidBtn" onclick="markParcelPaid()">✅ แจ้งชำระเงินแล้ว</button>
     </div>
   `;
+  fillParcelQr_(amount);
 }
 
 function handleSlipSelected(file){

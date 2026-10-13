@@ -793,11 +793,66 @@ function getLocation(){
   );
 }
 
+// ============================================================
+// 🆕 QR ชำระเงิน PromptPay — สร้างในเครื่องลูกค้าเอง (ไม่พึ่ง promptpay.io ที่ล่ม/ช้าได้)
+// ถ้าสร้างในเครื่องไม่สำเร็จ จะถอยไปใช้ promptpay.io เป็นตัวสำรอง
+// ============================================================
+function ppField_(id, val){ return id + ("0" + val.length).slice(-2) + val; }
+function ppCrc16_(s){
+  let crc = 0xFFFF;
+  for(let i = 0; i < s.length; i++){
+    crc ^= s.charCodeAt(i) << 8;
+    for(let j = 0; j < 8; j++){ crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1); crc &= 0xFFFF; }
+  }
+  return ("0000" + crc.toString(16).toUpperCase()).slice(-4);
+}
+function buildPromptPayPayload(phone, amount){
+  let digits = String(phone).replace(/\D/g, "");
+  if(digits.length === 10 && digits.charAt(0) === "0"){ digits = "66" + digits.substring(1); }
+  const target = ("0000000000000" + digits).slice(-13);
+  const amt = Number(amount);
+  const hasAmt = isFinite(amt) && amt > 0;
+  const data = [
+    ppField_("00", "01"),
+    ppField_("01", hasAmt ? "12" : "11"),
+    ppField_("29", ppField_("00", "A000000677010111") + ppField_("01", target)),
+    ppField_("58", "TH"),
+    ppField_("53", "764")
+  ];
+  if(hasAmt){ data.push(ppField_("54", amt.toFixed(2))); }
+  const body = data.join("") + "6304";
+  return body + ppCrc16_(body);
+}
+
+let qrLibPromise_ = null;
+function loadQrLib_(){
+  if(window.qrcode){ return Promise.resolve(); }
+  if(!qrLibPromise_){
+    qrLibPromise_ = new Promise(function(resolve, reject){
+      const s = document.createElement("script");
+      s.src = "qrcode.min.js";
+      s.onload = resolve;
+      s.onerror = function(){ qrLibPromise_ = null; reject(new Error("โหลดตัวสร้าง QR ไม่สำเร็จ")); };
+      document.head.appendChild(s);
+    });
+  }
+  return qrLibPromise_;
+}
+
 function showPaymentQR(amount){
-  const qrUrl = "https://promptpay.io/" + promptPayId + "/" + amount.toFixed(2) + ".png";
-  document.getElementById("qrImage").src = qrUrl;
+  const img = document.getElementById("qrImage");
+  const fallbackToWeb = function(){
+    img.onerror = null;
+    img.src = "https://promptpay.io/" + promptPayId + "/" + Number(amount).toFixed(2) + ".png";
+  };
   document.getElementById("payAmount").innerHTML = "ยอดชำระ " + amount + " บาท";
   document.getElementById("paymentBox").style.display = "block";
+  loadQrLib_().then(function(){
+    const qr = window.qrcode(0, "M");
+    qr.addData(buildPromptPayPayload(promptPayId, amount));
+    qr.make();
+    img.src = qr.createDataURL(10, 4);
+  }).catch(fallbackToWeb);
 }
 
 // ============================================================
@@ -819,6 +874,7 @@ async function confirmOrder(){
 
   // 🆕 ล็อกปุ่มทันที — ปิดการกดซ้ำ + เปลี่ยนข้อความให้ลูกค้ารู้ว่ากำลังส่งอยู่ ไม่ต้องกดย้ำ
   isSubmittingOrder = true;
+  loadQrLib_().catch(function(){}); // 🆕 โหลดตัวสร้าง QR ล่วงหน้าระหว่างรอส่งออเดอร์ จะได้ขึ้น QR ทันที
   const btn = document.getElementById("confirmOrderBtn");
   let originalBtnText = "✅ ยืนยันออเดอร์";
   if(btn){
