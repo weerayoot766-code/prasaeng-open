@@ -786,11 +786,66 @@ function applyLocation(newLat, newLng, sourceNote){
   window.renderCart();
 }
 
+// 🆕 ปักหมุดแบบทนทาน: ลองแม่นยำสูง → ลองซ้ำแบบประหยัด → ถ้าไม่ได้ เปิดแผนที่ให้ลูกค้าเลื่อนปักเอง
 function getLocation(){
-  navigator.geolocation.getCurrentPosition(
-    function(position){ applyLocation(position.coords.latitude, position.coords.longitude); },
-    function(){ alert("กรุณาเปิดสิทธิ์ตำแหน่ง GPS ก่อน"); }
-  );
+  const st = document.getElementById("locationStatus");
+  if(!navigator.geolocation){ openOrderMapPicker_("อุปกรณ์นี้ไม่รองรับ GPS"); return; }
+  if(st) st.innerHTML = "📡 กำลังค้นหาตำแหน่ง...";
+  function ok(p){ applyLocation(p.coords.latitude, p.coords.longitude); }
+  function fail(err){
+    let why = "หาตำแหน่งไม่สำเร็จ";
+    if(err && err.code === 1) why = "ยังไม่ได้อนุญาตตำแหน่ง (หรือปิด GPS ในมือถือ)";
+    else if(err && err.code === 2) why = "สัญญาณ GPS อ่อน หาตำแหน่งไม่เจอ";
+    else if(err && err.code === 3) why = "หาตำแหน่งนานเกินไป";
+    openOrderMapPicker_(why);
+  }
+  navigator.geolocation.getCurrentPosition(ok, function(err){
+    if(err && err.code === 1){ fail(err); return; }
+    // ลองซ้ำแบบประหยัด (ใช้ Wi-Fi/เสา) เหมาะกับมือถือ GPS ช้า
+    navigator.geolocation.getCurrentPosition(ok, fail,
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
+  }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+}
+
+let orderPickMap_ = null;
+function openOrderMapPicker_(why){
+  const st = document.getElementById("locationStatus");
+  if(st) st.innerHTML = "ยังไม่ได้ปักหมุด";
+  if(typeof L === "undefined"){
+    alert(why + "\n\nกรุณาเปิดตำแหน่ง (GPS) ในมือถือ แล้วอนุญาตให้เบราว์เซอร์ใช้ตำแหน่ง จากนั้นกดปักหมุดใหม่");
+    return;
+  }
+  let ov = document.getElementById("orderMapOverlay");
+  if(!ov){
+    ov = document.createElement("div");
+    ov.id = "orderMapOverlay";
+    ov.style.cssText = "position:fixed;inset:0;z-index:9999;background:#fff;display:flex;flex-direction:column;";
+    ov.innerHTML =
+      '<div id="orderMapWhy" style="padding:10px 12px;background:#fff3cd;font-size:14px;"></div>' +
+      '<div style="padding:6px 12px;font-size:13px;color:#555;">👆 เลื่อนแผนที่ให้ <b>หมุดตรงกลาง</b> อยู่ที่บ้าน/จุดรับของ แล้วกดยืนยัน</div>' +
+      '<div style="position:relative;flex:1;"><div id="orderMapBox" style="position:absolute;inset:0;"></div>' +
+      '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);font-size:34px;z-index:1000;pointer-events:none;">📍</div></div>' +
+      '<div style="display:flex;gap:8px;padding:10px;">' +
+      '<button id="orderMapCancel" style="flex:1;padding:12px;border:0;border-radius:10px;background:#ddd;">ยกเลิก</button>' +
+      '<button id="orderMapOk" style="flex:2;padding:12px;border:0;border-radius:10px;background:#d6336c;color:#fff;font-weight:bold;">✅ ยืนยันตำแหน่งนี้</button></div>';
+    document.body.appendChild(ov);
+    document.getElementById("orderMapCancel").onclick = function(){ ov.style.display = "none"; };
+    document.getElementById("orderMapOk").onclick = function(){
+      const c = orderPickMap_.getCenter();
+      ov.style.display = "none";
+      applyLocation(c.lat, c.lng, "เลือกบนแผนที่");
+    };
+  }
+  document.getElementById("orderMapWhy").textContent = "⚠️ " + why + " — เลือกตำแหน่งบนแผนที่แทนได้เลย";
+  ov.style.display = "flex";
+  const start = (lat && lng) ? [Number(lat), Number(lng)] : [shopLat, shopLng];
+  if(!orderPickMap_){
+    orderPickMap_ = L.map("orderMapBox").setView(start, 16);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(orderPickMap_);
+  } else {
+    orderPickMap_.setView(start, 16);
+  }
+  setTimeout(function(){ orderPickMap_.invalidateSize(); }, 150);
 }
 
 // ============================================================
