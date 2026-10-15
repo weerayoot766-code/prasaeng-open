@@ -808,6 +808,8 @@ function getLocation(){
 }
 
 let orderPickMap_ = null;
+let orderPickStart_ = null;
+let orderPickMoved_ = false;
 function openOrderMapPicker_(why){
   const st = document.getElementById("locationStatus");
   if(st) st.innerHTML = "ยังไม่ได้ปักหมุด";
@@ -822,7 +824,7 @@ function openOrderMapPicker_(why){
     ov.style.cssText = "position:fixed;inset:0;z-index:9999;background:#fff;display:flex;flex-direction:column;";
     ov.innerHTML =
       '<div id="orderMapWhy" style="padding:10px 12px;background:#fff3cd;font-size:14px;"></div>' +
-      '<div style="padding:6px 12px;font-size:13px;color:#555;">👆 เลื่อนแผนที่ให้ <b>หมุดตรงกลาง</b> อยู่ที่บ้าน/จุดรับของ แล้วกดยืนยัน</div>' +
+      '<div id="orderMapInfo" style="padding:6px 12px;font-size:14px;color:#555;">👆 เลื่อนแผนที่ให้ <b>หมุดตรงกลาง</b> อยู่ที่บ้าน/จุดรับของ แล้วกดยืนยัน</div>' +
       '<div style="position:relative;flex:1;"><div id="orderMapBox" style="position:absolute;inset:0;"></div>' +
       '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);font-size:34px;z-index:1000;pointer-events:none;">📍</div></div>' +
       '<div style="display:flex;gap:8px;padding:10px;">' +
@@ -831,6 +833,7 @@ function openOrderMapPicker_(why){
     document.body.appendChild(ov);
     document.getElementById("orderMapCancel").onclick = function(){ ov.style.display = "none"; };
     document.getElementById("orderMapOk").onclick = function(){
+      if(!orderPickMoved_){ alert("กรุณาเลื่อนแผนที่ให้หมุด 📍 อยู่ตรงบ้าน/จุดรับของก่อน แล้วค่อยกดยืนยัน"); return; }
       const c = orderPickMap_.getCenter();
       ov.style.display = "none";
       applyLocation(c.lat, c.lng, "เลือกบนแผนที่");
@@ -839,11 +842,31 @@ function openOrderMapPicker_(why){
   document.getElementById("orderMapWhy").textContent = "⚠️ " + why + " — เลือกตำแหน่งบนแผนที่แทนได้เลย";
   ov.style.display = "flex";
   const start = (lat && lng) ? [Number(lat), Number(lng)] : [shopLat, shopLng];
+  orderPickStart_ = start;
+  orderPickMoved_ = false;
+  const okBtn = document.getElementById("orderMapOk");
+  okBtn.style.opacity = "0.45";
+  document.getElementById("orderMapInfo").innerHTML = "👆 เลื่อนแผนที่ให้ <b>หมุดตรงกลาง</b> อยู่ที่บ้าน/จุดรับของ แล้วกดยืนยัน";
   if(!orderPickMap_){
     orderPickMap_ = L.map("orderMapBox").setView(start, 16);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(orderPickMap_);
   } else {
     orderPickMap_.setView(start, 16);
+  }
+  if(!orderPickMap_._pdBound){
+    orderPickMap_._pdBound = true;
+    orderPickMap_.on("moveend", function(){
+      const c = orderPickMap_.getCenter();
+      const s0 = orderPickStart_;
+      if(s0 && calculateDistance(s0[0], s0[1], c.lat, c.lng) > 0.02){
+        orderPickMoved_ = true;
+        document.getElementById("orderMapOk").style.opacity = "1";
+      }
+      if(orderPickMoved_){
+        const d = calculateDistance(shopLat, shopLng, c.lat, c.lng);
+        document.getElementById("orderMapInfo").innerHTML = "ระยะประมาณ <b>" + d.toFixed(2) + " กม.</b> · ค่าส่ง <b>" + getDeliveryFee(d) + " บาท</b>";
+      }
+    });
   }
   setTimeout(function(){ orderPickMap_.invalidateSize(); }, 150);
 }
