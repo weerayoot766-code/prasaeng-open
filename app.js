@@ -9,7 +9,6 @@ const shopLat = 8.5737747;
 const shopLng = 99.2393303;
 let deliveryFee = 0;
 let distanceKm = 0;
-let currentOrderId = "";
 const promptPayId = "0932945790";
 
 // 🆕 ระบบคูปอง
@@ -26,6 +25,7 @@ function switchTab(tabName){
   });
   window.scrollTo(0, 0);
 
+  if(tabName === "track"){ renderOrders_(false); refreshOrders_(); }
   if(tabName === "cart"){ loadMemberCoupons(); } // 🆕 เข้าตะกร้าทีไร เช็คคูปองที่มีทุกครั้ง
 }
 
@@ -917,21 +917,6 @@ function loadQrLib_(){
   return qrLibPromise_;
 }
 
-function showPaymentQR(amount){
-  const img = document.getElementById("qrImage");
-  const fallbackToWeb = function(){
-    img.onerror = null;
-    img.src = "https://promptpay.io/" + promptPayId + "/" + Number(amount).toFixed(2) + ".png";
-  };
-  document.getElementById("payAmount").innerHTML = "ยอดชำระ " + amount + " บาท";
-  document.getElementById("paymentBox").style.display = "block";
-  loadQrLib_().then(function(){
-    const qr = window.qrcode(0, "M");
-    qr.addData(buildPromptPayPayload(promptPayId, amount));
-    qr.make();
-    img.src = qr.createDataURL(10, 4);
-  }).catch(fallbackToWeb);
-}
 
 // ============================================================
 // 🆕 ยืนยันออเดอร์ ผ่าน apiPost (แทน google.script.run)
@@ -1000,29 +985,31 @@ async function confirmOrder(){
     localStorage.removeItem("pd_currentShop");
     localStorage.removeItem("pd_cart");
 
-    // 🆕 เคลียร์ตะกร้า+ข้อมูลที่กรอกไว้ทันทีที่ส่งออเดอร์สำเร็จ (ไม่ใช่แค่ล้าง localStorage)
-    // เดิมถ้าลูกค้ากดย้อนกลับมาแท็บ "ตะกร้าที่สั่ง" จะยังเห็นสินค้า/ชื่อ/เบอร์/หมุดเดิมค้างอยู่ครบ
-    // พอปุ่มปลดล็อกแล้ว (แก้ไปรอบก่อน) เลยกดยืนยันซ้ำเป็นออเดอร์ใหม่ได้อีก ต้องเคลียร์ทิ้งด้วยเลย
+    // 🆕 จดออเดอร์นี้เข้ารายการติดตาม (ก่อนเคลียร์ตะกร้า) — 1 ออเดอร์ = 1 การ์ด ลูกค้าสั่งต่อได้อีกหลายร้านโดยไม่หลุดการติดตามใบเดิม
+    const itemsShort = cart.map(function(item){
+      return item.name + " x" + (item.qty || 1);
+    }).join("\n");
+    myOrders.unshift({
+      id: result.orderId, shop: selectedShopName, items: itemsShort,
+      productTotal: productTotal, delivery: Math.max(0, Number(finalAmount) - Number(productTotal)), total: Number(finalAmount),
+      phone: phone, lat: lat, lng: lng, createdAt: Date.now(),
+      status: "รอชำระเงิน", riderName: "", riderPhone: "", done: false, proof: ""
+    });
+    delete orderExpanded_[result.orderId];
+    saveMyOrders_();
+
+    // เคลียร์ตะกร้า + หมุด (กันกดยืนยันซ้ำเป็นออเดอร์ใหม่) — แต่เก็บ "ชื่อ/เบอร์/ที่อยู่" ไว้ ลูกค้าจะสั่งร้านที่สองต่อได้ไม่ต้องพิมพ์ใหม่
     cart = [];
     lat = "";
     lng = "";
     deliveryFee = 0;
     distanceKm = 0;
-    document.getElementById("customerName").value = "";
-    document.getElementById("customerPhone").value = "";
-    document.getElementById("customerAddress").value = "";
     document.getElementById("locationStatus").innerHTML = "ยังไม่ได้ปักหมุด";
     window.renderCart();
 
-    currentOrderId = result.orderId;
-    localStorage.setItem("pd_currentOrderId", currentOrderId); // 🆕 กันรีเฟรชแล้วหลุดการติดตาม
-    localStorage.setItem("pd_currentOrderPhone", phone); // ใช้ยืนยันตัวตนในแชท
-    showPaymentQR(finalAmount);
-    document.getElementById("statusBox").style.display = "block";
-    document.getElementById("trackEmptyState").style.display = "none";
-    document.getElementById("orderIdText").innerHTML = "หมายเลขออเดอร์: " + currentOrderId;
+    renderOrders_(true);
     switchTab("track");
-    checkOrderStatus();
+    refreshOrders_();
     // 🆕 สำเร็จแล้ว ปลดล็อกปุ่มคืนด้วย เผื่อลูกค้ากดย้อนกลับมาที่แท็บ "ตะกร้าที่สั่ง" อีกรอบ
     // (เดิมปล่อยปุ่มค้างเป็น "⏳ กำลังส่งออเดอร์..." ตลอดไป ทำให้ดูเหมือนระบบค้าง/พัง ทั้งที่ออเดอร์ส่งสำเร็จแล้ว)
     isSubmittingOrder = false;
@@ -1042,129 +1029,381 @@ async function confirmOrder(){
 }
 
 // 🆕 ตัวแปรเก็บ instance แผนที่/หมุด ไว้ใช้ซ้ำ (ไม่สร้างแผนที่ใหม่ทุกครั้งที่ poll)
-let riderMapInstance = null;
-let riderMarker = null;
-let customerMarker = null;
 
-async function checkOrderStatus(){
-  if(currentOrderId == ""){ alert("ยังไม่มีหมายเลขออเดอร์"); return; }
 
+
+
+
+// ============================================================
+// 🧾 ติดตามหลายออเดอร์พร้อมกัน — 1 ออเดอร์ = 1 การ์ด (สถานะ/ไรเดอร์/สลิป/แชท/แผนที่ แยกกัน)
+// เก็บรายการออเดอร์ไว้ในเครื่องลูกค้า (localStorage "pd_orders") แล้วถามสถานะรวดเดียวจาก getOrdersStatus
+// ============================================================
+let myOrders = [];
+const orderExpanded_ = {};   // id -> true/false (ลูกค้ากดกาง/ย่อเอง)
+const orderMapOpen_ = {};    // id -> true ถ้าเปิดแผนที่ไว้
+const orderMaps_ = {};       // id -> { map, rider, cust }
+const uploadingSlip_ = {};   // id -> true ระหว่างส่งสลิป
+let refreshingOrders_ = false;
+
+function loadMyOrders_(){
   try {
-    const data = await apiGet('getOrderStatus', { orderId: currentOrderId });
-    if(data == null){ alert("ไม่พบออเดอร์"); return; }
-
-    document.getElementById("statusText").innerHTML = "สถานะ: " + data.status;
-
-    // 🆕 ปุ่ม "ส่งข้อความหาไรเดอร์" — โชว์เฉพาะตอนมีไรเดอร์รับงานแล้ว และงานยังไม่จบ (เปิดแอปข้อความของเครื่อง/SMS)
-    const chatRiderBtn = document.getElementById("chatRiderBtn");
-    if(chatRiderBtn){
-      chatRiderBtn.style.display = (data.riderName != "" && data.riderPhone && data.status != "ส่งสำเร็จ") ? "block" : "none";
-    }
-
-    if(data.status == "ส่งสำเร็จ"){
-      document.getElementById("paymentBox").style.display = "none";
-      document.getElementById("riderMapBox").style.display = "none";
-      let doneHtml = "✅ ส่งสำเร็จแล้ว ขอบคุณที่ใช้บริการครับ";
-      if(data.proofImageUrl){
-        doneHtml += '<br><br><b>📸 รูปยืนยันการส่งของ:</b><br>' +
-          '<img src="' + escapeHtml(data.proofImageUrl) + '" style="width:100%;border-radius:12px;margin-top:6px;">';
-      }
-      document.getElementById("riderText").innerHTML = doneHtml;
-      return;
-    }
-
-    if(data.riderName != ""){
-      document.getElementById("riderText").innerHTML =
-        "🛵 ไรเดอร์: " + data.riderName +
-        "<br>📞 " + data.riderPhone +
-        "<br><br>" +
-        "<a href='tel:" + String(data.riderPhone).replace(/-/g,"") + "'>" +
-        "<button>โทรหาไรเดอร์</button></a>" +
-        "<br><br>" +
-        "<button onclick=\"copyPhone('" + String(data.riderPhone).replace(/-/g,"") + "')\">📋 คัดลอกเบอร์</button>";
-
-      // 🆕 ดึงตำแหน่งไรเดอร์ล่าสุดมาโชว์บนแผนที่
-      updateRiderMapView(data.riderPhone);
-    } else {
-      document.getElementById("riderText").innerHTML = "ยังไม่มีไรเดอร์รับงาน";
-      document.getElementById("riderMapBox").style.display = "none";
-    }
-  } catch(error){
-    alert("เช็กสถานะไม่สำเร็จ: " + error.message);
+    const arr = JSON.parse(localStorage.getItem("pd_orders") || "[]");
+    myOrders = Array.isArray(arr) ? arr : [];
+  } catch(e){ myOrders = []; }
+  // รองรับลูกค้าที่มีออเดอร์เดียวค้างจากแอปเวอร์ชันเก่า
+  const legacy = localStorage.getItem("pd_currentOrderId");
+  if(legacy && !myOrders.some(function(o){ return o.id === legacy; })){
+    myOrders.unshift({ id: legacy, shop: "", items: "", total: 0, productTotal: 0, delivery: 0,
+      phone: localStorage.getItem("pd_currentOrderPhone") || "", lat: "", lng: "",
+      createdAt: Date.now(), status: "กำลังตรวจสอบ", riderName: "", riderPhone: "", done: false, proof: "" });
   }
+  localStorage.removeItem("pd_currentOrderId");
+  localStorage.removeItem("pd_currentOrderPhone");
 }
 
-/** 🆕 ดึงพิกัดไรเดอร์ล่าสุดจาก getRiderLocation แล้ววาด/อัปเดตหมุดบนแผนที่ */
-async function updateRiderMapView(riderPhone){
-  try {
-    const loc = await apiGet('getRiderLocation', { phone: riderPhone });
-    if(!loc.success){
-      // 🆕 ยังไม่มีพิกัดไรเดอร์ — ถ้ายังไม่เคยสร้างแผนที่มาก่อนเลย โชว์เหตุผลไว้ให้เห็นชัดๆ (ช่วย debug)
-      // แต่ถ้าเคยมีแผนที่แสดงอยู่แล้ว (จากรอบก่อนหน้า) ให้คงไว้ตามเดิม ไม่ลบทิ้ง
-      if(!riderMapInstance){
-        document.getElementById("riderMapBox").style.display = "block";
-        document.getElementById("riderMap").innerHTML =
-          '<p style="text-align:center;color:#999;font-size:13px;padding:20px;">ไรเดอร์ยังไม่ได้เปิดหน้าแชร์ตำแหน่ง หรือยังไม่มีพิกัดล่าสุด</p>';
-      }
-      return;
-    }
-
-    document.getElementById("riderMapBox").style.display = "block";
-
-    if(!riderMapInstance){
-      riderMapInstance = L.map("riderMap");
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap"
-      }).addTo(riderMapInstance);
-    }
-
-    const riderLatLng = [loc.lat, loc.lng];
-
-    if(!riderMarker){
-      riderMarker = L.marker(riderLatLng, {
-        icon: L.divIcon({ html: "🛵", className: "rider-map-icon", iconSize: [32,32] })
-      }).addTo(riderMapInstance).bindPopup("ไรเดอร์");
-    } else {
-      riderMarker.setLatLng(riderLatLng);
-    }
-
-    // ปักหมุดปลายทาง (ที่อยู่ลูกค้า) ไว้เทียบตำแหน่งด้วย ถ้ามีพิกัดอยู่แล้ว
-    if(lat && lng){
-      const customerLatLng = [lat, lng];
-      if(!customerMarker){
-        customerMarker = L.marker(customerLatLng, {
-          icon: L.divIcon({ html: "🏠", className: "rider-map-icon", iconSize: [32,32] })
-        }).addTo(riderMapInstance).bindPopup("ที่อยู่คุณ");
-      } else {
-        customerMarker.setLatLng(customerLatLng);
-      }
-      riderMapInstance.fitBounds([riderLatLng, customerLatLng], { padding: [30,30] });
-    } else {
-      riderMapInstance.setView(riderLatLng, 15);
-    }
-
-    // แก้บั๊กแผนที่ Leaflet แสดงผลไม่เต็มกรอบตอนเพิ่งสร้าง (กล่องถูกซ่อนอยู่ก่อนหน้า)
-    setTimeout(function(){ riderMapInstance.invalidateSize(); }, 200);
-
-    if(loc.updatedAt){
-      const updatedDate = new Date(loc.updatedAt);
-      document.getElementById("riderMapUpdated").innerText =
-        "อัปเดตล่าสุด " + updatedDate.toLocaleTimeString("th-TH");
-    }
-  } catch(error){
-    // 🆕 โชว์ error ตรงๆ ในหน้าเว็บแทนการซ่อนเงียบๆ (debug ได้จากมือถือโดยไม่ต้องเปิด DevTools)
-    // แต่ถ้าเคยมีแผนที่แสดงอยู่แล้ว ให้คงไว้ตามเดิม ไม่ลบทิ้งเพราะ error ชั่วคราว
-    if(!riderMapInstance){
-      document.getElementById("riderMapBox").style.display = "block";
-      document.getElementById("riderMap").innerHTML =
-        '<p style="text-align:center;color:#d63333;font-size:13px;padding:20px;">โหลดแผนที่ไม่สำเร็จ: ' + escapeHtml(error.message) + '</p>';
-    }
-  }
+function saveMyOrders_(){
+  // เก็บออเดอร์ที่ยังไม่จบทั้งหมด + ที่จบแล้วล่าสุดไม่เกิน 5 ใบ (และไม่เกิน 24 ชม.)
+  const now = Date.now();
+  const active = myOrders.filter(function(o){ return !o.done; });
+  const done = myOrders.filter(function(o){ return o.done && (now - (o.doneAt || o.createdAt || now)) < 24*3600*1000; }).slice(0, 5);
+  myOrders = active.concat(done).sort(function(a, b){ return (b.createdAt || 0) - (a.createdAt || 0); });
+  try { localStorage.setItem("pd_orders", JSON.stringify(myOrders)); } catch(e){}
 }
+
+function findMyOrder_(id){ return myOrders.find(function(o){ return o.id === id; }); }
+
+/** จำนวนจุดที่เต็มในแถบความคืบหน้า (0-6) + ป้ายสถานะ */
+function orderStage_(o){
+  const s = String(o.status || "");
+  if(o.done || s === "ส่งสำเร็จ") return { n: 6, cls: "g", text: "✅ ส่งสำเร็จ", unpaid: false, waitSlip: false };
+  if(s === "กำลังส่ง") return { n: 5, cls: "b", text: "🏍️ กำลังส่ง", unpaid: false, waitSlip: false };
+  if(s === "กำลังซื้อ") return { n: 4, cls: "b", text: "🛒 กำลังซื้อของ", unpaid: false, waitSlip: false };
+  if(s.indexOf("ไรเดอร์รับงาน") === 0) return { n: 3, cls: "g", text: "🟢 ไรเดอร์รับงานแล้ว", unpaid: false, waitSlip: false };
+  if(s.indexOf("ชำระเงินแล้ว") === 0) return { n: 1, cls: "b", text: "🔎 กำลังหาไรเดอร์", unpaid: false, waitSlip: false };
+  if(s === "รอตรวจสอบสลิป") return { n: 0, cls: "o", text: "🟡 รอตรวจสลิป", unpaid: false, waitSlip: true };
+  if(s.indexOf("สลิปไม่ผ่าน") === 0) return { n: 0, cls: "r", text: "🔴 สลิปไม่ผ่าน ส่งใหม่", unpaid: true, waitSlip: false };
+  if(s === "รอชำระเงิน") return { n: 0, cls: "o", text: "🟠 รอชำระเงิน", unpaid: true, waitSlip: false };
+  return { n: 0, cls: "o", text: "⏳ " + (s || "กำลังตรวจสอบ"), unpaid: false, waitSlip: false };
+}
+
+function orderIsExpanded_(o){
+  if(orderExpanded_.hasOwnProperty(o.id)) return orderExpanded_[o.id];
+  if(o.done) return false;
+  const active = myOrders.filter(function(x){ return !x.done; });
+  if(active.length <= 1) return true;
+  return orderStage_(o).unpaid; // มีหลายใบ: ใบที่ยังต้องจ่ายเงินกางไว้ก่อน ใบอื่นย่อ
+}
+
+function toggleOrderCard(id){
+  const o = findMyOrder_(id); if(!o) return;
+  orderExpanded_[id] = !orderIsExpanded_(o);
+  renderOrders_(true);
+}
+
+function orderStepsHtml_(n){
+  const labs = ["ชำระเงิน","รอไรเดอร์","รับงาน","กำลังซื้อ","กำลังส่ง","สำเร็จ"];
+  let h = '<div class="osteps">';
+  for(let i = 0; i < 6; i++){
+    h += '<span class="odot' + (i < n ? ' on' : '') + '"></span>';
+    if(i < 5){ h += '<span class="oln' + (i < n - 1 ? ' on' : '') + '"></span>'; }
+  }
+  h += '</div><div class="ostl">' + labs.map(function(l){ return "<span>" + l + "</span>"; }).join("") + "</div>";
+  return h;
+}
+
+function orderCardHtml_(o){
+  const st = orderStage_(o);
+  const expanded = orderIsExpanded_(o);
+  const id = escapeHtml(o.id);
+  const hasRider = !!o.riderName && !o.done;
+  let h = '<div class="oc-head" onclick="toggleOrderCard(\'' + id + '\')">' +
+    '<div><div class="oc-id">🧾 ' + id + '</div>' +
+    (o.shop ? '<div class="oc-shop">🏪 ' + escapeHtml(o.shop) + '</div>' : '') + '</div>' +
+    '<div class="oc-pill ' + st.cls + '">' + escapeHtml(st.text) + '</div></div>';
+
+  if(!expanded){
+    h += '<div class="oc-mini"><span>' + (hasRider ? '🛵 ' + escapeHtml(o.riderName) + ' · 📞 ' + escapeHtml(o.riderPhone) : escapeHtml(o.items || "")) +
+      '</span><span class="oc-more">กาง ›</span></div>' + orderStepsHtml_(st.n);
+    return h;
+  }
+
+  if(o.items){ h += '<div class="oc-items">' + escapeHtml(o.items).replace(/\n/g, "<br>") + '</div>'; }
+  if(o.total){
+    h += '<div class="oc-sum"><span>ค่าสินค้า ' + Number(o.productTotal || 0) + ' + ส่ง ' + Number(o.delivery || 0) + ' บาท</span>' +
+      '<span>รวม <b>' + Number(o.total) + ' บาท</b></span></div>';
+  }
+  h += orderStepsHtml_(st.n);
+
+  if(st.unpaid){
+    h += '<div class="oc-pay">' +
+      (st.cls === "r" ? '<div class="oc-warn">สลิปไม่ผ่าน กรุณาโอนให้ตรงยอดแล้วส่งสลิปใหม่</div>' : '') +
+      '<div class="oc-qrrow"><img id="qr-' + id + '" class="oc-qr" alt="QR ชำระเงิน"><div>สแกน QR โอน <b>' + Number(o.total) + ' บาท</b><br>แล้วแนบสลิป <b>ของออเดอร์ ' + id + '</b></div></div>' +
+      '<input type="file" id="slip-' + id + '" accept="image/*" onchange="onSlipPick_(\'' + id + '\')">' +
+      '<button class="oc-btn" id="slipbtn-' + id + '" onclick="uploadSlipFor(\'' + id + '\')" disabled>📎 เลือกไฟล์สลิปก่อน แล้วกดส่งตรงนี้</button></div>';
+  } else if(st.waitSlip){
+    h += '<div class="oc-note">ส่งสลิปแล้ว รอแอดมินตรวจสอบสักครู่ครับ</div>';
+  }
+
+  if(hasRider){
+    const tel = String(o.riderPhone).replace(/-/g, "");
+    h += '<div class="oc-rider"><div class="oc-av">🛵</div><div><div class="oc-rn">' + escapeHtml(o.riderName) + '</div><div>📞 ' + escapeHtml(o.riderPhone) + '</div></div></div>' +
+      '<div class="oc-btns"><a class="oc-btn" href="tel:' + escapeHtml(tel) + '">📞 โทร</a>' +
+      '<button class="oc-btn t" onclick="openOrderChat(\'rider\',\'' + id + '\')">💬 แชท</button>' +
+      '<button class="oc-btn w" onclick="toggleOrderMap(\'' + id + '\')">🗺️ แผนที่</button></div>' +
+      '<div id="omapbox-' + id + '" style="display:' + (orderMapOpen_[o.id] ? 'block' : 'none') + ';margin-top:10px;">' +
+      '<div id="omap-' + id + '" class="oc-map"></div><p id="omapt-' + id + '" class="oc-maptxt"></p></div>';
+  } else if(!o.done && !st.unpaid && !st.waitSlip){
+    h += '<div class="oc-note">ยังไม่มีไรเดอร์รับงาน</div>';
+  }
+
+  if(o.done){
+    h += '<div class="oc-note ok">✅ ส่งสำเร็จแล้ว ขอบคุณที่ใช้บริการครับ</div>';
+    if(o.proof){ h += '<img src="' + escapeHtml(o.proof) + '" class="oc-proof" alt="รูปยืนยันการส่งของ">'; }
+  }
+
+  h += '<div class="oc-btns" style="margin-top:12px;"><button class="oc-btn" onclick="openOrderChat(\'admin\',\'' + id + '\')">💬 แชทหาแอดมิน</button></div>';
+  return h;
+}
+
+function fillOrderQr_(id, amount){
+  const img = document.getElementById("qr-" + id);
+  if(!img) return;
+  const fallback = function(){ img.src = "https://promptpay.io/" + promptPayId + "/" + Number(amount).toFixed(2) + ".png"; };
+  loadQrLib_().then(function(){
+    const qr = window.qrcode(0, "M");
+    qr.addData(buildPromptPayPayload(promptPayId, amount));
+    qr.make();
+    img.src = qr.createDataURL(8, 3);
+  }).catch(fallback);
+}
+
+/** วาดรายการการ์ดทั้งหมด — แก้เฉพาะการ์ดที่ข้อมูลเปลี่ยนจริง (ไม่ล้างไฟล์สลิปที่เพิ่งเลือก) */
+function renderOrders_(force){
+  const list = document.getElementById("ordersList");
+  const empty = document.getElementById("trackEmptyState");
+  if(!list) return;
+  if(myOrders.length === 0){
+    list.innerHTML = "";
+    if(empty){ empty.style.display = "block"; }
+    return;
+  }
+  if(empty){ empty.style.display = "none"; }
+
+  const active = myOrders.filter(function(o){ return !o.done; });
+  let head = document.getElementById("ordersHead");
+  if(!head){
+    head = document.createElement("div");
+    head.id = "ordersHead";
+    list.parentNode.insertBefore(head, list);
+  }
+  head.innerHTML = '<div class="oc-top"><span>🛵 ติดตามออเดอร์</span>' +
+    (active.length ? '<span class="oc-badge">' + active.length + ' ออเดอร์</span>' : '') + '</div>';
+
+  const keep = {};
+  let prevEl = null;
+  myOrders.forEach(function(o){
+    keep["oc-" + o.id] = true;
+    const sig = [o.status, o.riderName, o.riderPhone, o.done ? 1 : 0, o.proof, o.total, orderIsExpanded_(o) ? 1 : 0].join("|");
+    let el = document.getElementById("oc-" + o.id);
+    if(!el){
+      el = document.createElement("div");
+      el.id = "oc-" + o.id;
+      el.className = "oc-card";
+    }
+    // ใส่เข้าหน้าก่อน (ให้ getElementById หาเจอ) แล้วค่อยเติมเนื้อหา — ขยับเฉพาะเมื่อผิดตำแหน่ง (ไม่รบกวนการ์ดที่ไม่เปลี่ยน)
+    const expectedNext = prevEl ? prevEl.nextSibling : list.firstChild;
+    if(el !== expectedNext){ list.insertBefore(el, expectedNext); }
+    prevEl = el;
+    if(force || el.dataset.sig !== sig){
+      el.dataset.sig = sig;
+      el.innerHTML = orderCardHtml_(o);
+      const st = orderStage_(o);
+      if(orderIsExpanded_(o) && st.unpaid){ fillOrderQr_(o.id, o.total); }
+      if(orderMapOpen_[o.id] && orderIsExpanded_(o) && o.riderName && !o.done){ openOrderMap_(o.id); }
+    }
+  });
+  Array.prototype.slice.call(list.children).forEach(function(el){
+    if(!keep[el.id]){
+      const oid = el.id.replace(/^oc-/, "");
+      if(orderMaps_[oid]){ try { orderMaps_[oid].map.remove(); } catch(e){} delete orderMaps_[oid]; }
+      list.removeChild(el);
+    }
+  });
+
+  let foot = document.getElementById("ordersFoot");
+  if(!foot){
+    foot = document.createElement("div");
+    foot.id = "ordersFoot";
+    list.parentNode.appendChild(foot);
+  }
+  foot.innerHTML = '<div class="oc-add" onclick="startAnotherOrder()">➕ สั่งเพิ่มจากอีกร้าน</div>';
+}
+
+function startAnotherOrder(){
+  switchTab("order");
+  if(typeof showStoreHome === "function"){ try { showStoreHome(); } catch(e){} }
+}
+
+/** ถามสถานะทุกออเดอร์ที่ยังไม่จบ ในคำขอเดียว */
+async function refreshOrders_(){
+  if(refreshingOrders_) return;
+  const ids = myOrders.filter(function(o){ return !o.done; }).map(function(o){ return o.id; });
+  if(ids.length === 0) return;
+  refreshingOrders_ = true;
+  try {
+    const rows = await apiGet('getOrdersStatus', { ids: ids.join(",") });
+    if(Array.isArray(rows)){
+      rows.forEach(function(r){
+        if(!r) return;
+        const o = findMyOrder_(r.orderId);
+        if(!o) return;
+        o.status = r.status || o.status;
+        o.riderName = r.riderName || "";
+        o.riderPhone = r.riderPhone || "";
+        if(r.proofImageUrl){ o.proof = r.proofImageUrl; }
+        if(r.status === "ส่งสำเร็จ" && !o.done){ o.done = true; o.doneAt = Date.now(); }
+      });
+      saveMyOrders_();
+    }
+    renderOrders_(false);
+    myOrders.forEach(function(o){
+      if(orderMapOpen_[o.id] && o.riderName && !o.done){ updateOrderMap_(o.id, o.riderPhone); }
+    });
+  } catch(e){ /* เงียบไว้ ไม่เด้งเตือนทุก 5 วินาทีตอนเน็ตสะดุด */ }
+  refreshingOrders_ = false;
+}
+function checkOrderStatus(){ return refreshOrders_(); }
 
 setInterval(function(){
-  if(currentOrderId != ""){ checkOrderStatus(); }
-},5000);
+  if(myOrders.some(function(o){ return !o.done; })){ refreshOrders_(); }
+}, 5000);
+
+// ---------- แผนที่ไรเดอร์ แยกต่อออเดอร์ ----------
+function toggleOrderMap(id){
+  orderMapOpen_[id] = !orderMapOpen_[id];
+  const box = document.getElementById("omapbox-" + id);
+  if(box){ box.style.display = orderMapOpen_[id] ? "block" : "none"; }
+  if(orderMapOpen_[id]){ openOrderMap_(id); }
+}
+
+function openOrderMap_(id){
+  const o = findMyOrder_(id);
+  const box = document.getElementById("omapbox-" + id);
+  if(!o || !box) return;
+  box.style.display = "block";
+  if(typeof L === "undefined"){
+    document.getElementById("omapt-" + id).textContent = "โหลดแผนที่ไม่สำเร็จ";
+    return;
+  }
+  if(!orderMaps_[id] || orderMaps_[id].el !== document.getElementById("omap-" + id)){
+    if(orderMaps_[id]){ try { orderMaps_[id].map.remove(); } catch(e){} }
+    const el = document.getElementById("omap-" + id);
+    const map = L.map(el);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(map);
+    orderMaps_[id] = { map: map, el: el, rider: null, cust: null };
+    map.setView([shopLat, shopLng], 14);
+  }
+  setTimeout(function(){ if(orderMaps_[id]){ orderMaps_[id].map.invalidateSize(); } }, 200);
+  updateOrderMap_(id, o.riderPhone);
+}
+
+async function updateOrderMap_(id, riderPhone){
+  const m = orderMaps_[id];
+  const o = findMyOrder_(id);
+  if(!m || !o) return;
+  const txt = document.getElementById("omapt-" + id);
+  try {
+    const loc = await apiGet('getRiderLocation', { phone: riderPhone });
+    if(!loc || !loc.success){
+      if(txt){ txt.textContent = "ไรเดอร์ยังไม่ได้เปิดแชร์ตำแหน่ง หรือยังไม่มีพิกัดล่าสุด"; }
+      return;
+    }
+    const rl = [loc.lat, loc.lng];
+    if(!m.rider){
+      m.rider = L.marker(rl, { icon: L.divIcon({ html: "🛵", className: "rider-map-icon", iconSize: [32,32] }) }).addTo(m.map).bindPopup("ไรเดอร์");
+    } else { m.rider.setLatLng(rl); }
+    if(o.lat && o.lng){
+      const cl = [Number(o.lat), Number(o.lng)];
+      if(!m.cust){
+        m.cust = L.marker(cl, { icon: L.divIcon({ html: "🏠", className: "rider-map-icon", iconSize: [32,32] }) }).addTo(m.map).bindPopup("ที่อยู่คุณ");
+      }
+      m.map.fitBounds([rl, cl], { padding: [30,30] });
+    } else { m.map.setView(rl, 15); }
+    if(txt && loc.updatedAt){ txt.textContent = "อัปเดตล่าสุด " + new Date(loc.updatedAt).toLocaleTimeString("th-TH"); }
+  } catch(e){
+    if(txt){ txt.textContent = "โหลดตำแหน่งไรเดอร์ไม่สำเร็จ"; }
+  }
+}
+
+// ---------- ส่งสลิป แยกต่อออเดอร์ ----------
+function onSlipPick_(id){
+  const inp = document.getElementById("slip-" + id);
+  const btn = document.getElementById("slipbtn-" + id);
+  if(!inp || !btn) return;
+  const has = !!(inp.files && inp.files[0]);
+  btn.disabled = !has;
+  btn.textContent = has ? "📤 ส่งสลิป " + id : "📎 เลือกไฟล์สลิปก่อน แล้วกดส่งตรงนี้";
+}
+
+function uploadSlipFor(id){
+  if(uploadingSlip_[id]) return;
+  const inp = document.getElementById("slip-" + id);
+  const btn = document.getElementById("slipbtn-" + id);
+  const file = inp && inp.files && inp.files[0];
+  if(!file){ alert("กรุณาเลือกสลิปก่อน"); return; }
+
+  uploadingSlip_[id] = true;
+  if(btn){ btn.disabled = true; btn.textContent = "⏳ กำลังส่งสลิป..."; }
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = async function(){
+      const canvas = document.createElement("canvas");
+      const scale = Math.min(1, 800 / img.width);
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      const base64 = canvas.toDataURL("image/jpeg", 0.75).split(",")[1];
+      try {
+        await apiPost('uploadSlipToTelegram', { orderId: id, fileName: file.name, base64: base64 });
+        alert("ส่งสลิปเรียบร้อย ✅ (ออเดอร์ " + id + ")");
+        const o = findMyOrder_(id);
+        if(o){ o.status = "รอตรวจสอบสลิป"; saveMyOrders_(); }
+        uploadingSlip_[id] = false;
+        renderOrders_(true);
+      } catch(error){
+        uploadingSlip_[id] = false;
+        if(btn){ btn.disabled = false; btn.textContent = "📤 ส่งสลิป " + id; }
+        alert("ส่งสลิปไม่สำเร็จ: " + error.message + "\n\nลองเช็คสัญญาณเน็ตแล้วกดส่งใหม่อีกครั้งได้เลยครับ (ยังไม่ถูกส่งซ้ำ ไม่ต้องกังวล)");
+      }
+    };
+    img.onerror = function(){ uploadingSlip_[id] = false; if(btn){ btn.disabled = false; } alert("เปิดไฟล์รูปไม่ได้ กรุณาเลือกรูปสลิปใหม่"); };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// 💬 แชทสด: เปิดห้องแชทของ "ออเดอร์ที่เลือก" (channel = 'admin' | 'rider')
+function openOrderChat(channel, orderId){
+  const o = findMyOrder_(orderId);
+  if(!o){ alert("ยังไม่มีออเดอร์ให้แชท"); return; }
+  ChatUI.open({
+    role: "customer",
+    orderId: o.id,
+    channel: channel,
+    phone: o.phone || "",
+    title: channel === "admin" ? "💬 แชทกับแอดมิน " + o.id : "💬 แชทกับไรเดอร์ " + o.id
+  });
+}
+
+/** เปิดแอปครั้งใหม่ → กู้รายการออเดอร์ที่ยังติดตามอยู่ */
+function restoreTrackedOrder(){
+  loadMyOrders_();
+  saveMyOrders_();
+  renderOrders_(true);
+  refreshOrders_();
+}
 
 function copyPhone(phone){
   navigator.clipboard.writeText(phone).then(function(){
@@ -1174,123 +1413,9 @@ function copyPhone(phone){
   });
 }
 
-// 🆕 เปิด/ปิดปุ่ม "ส่งสลิป" ตามว่าเลือกไฟล์แล้วหรือยัง — กันลูกค้ากดส่งก่อนแนบไฟล์
-// (ปุ่มจะ disabled ไว้ตั้งแต่แรกในหน้า HTML อยู่แล้ว มาเปิดให้ตรงนี้ตอนเลือกไฟล์เสร็จ)
-function toggleSlipSendBtn(){
-  const file = document.getElementById("slipFile").files[0];
-  const btn = document.getElementById("sendSlipBtn");
-  if(!btn) return;
-  if(file){
-    btn.disabled = false;
-    btn.textContent = "📤 ส่งสลิป";
-  } else {
-    btn.disabled = true;
-    btn.textContent = "📎 เลือกไฟล์แนบสลิปก่อน แล้วกดส่งสลิปตรงนี้";
-  }
-}
 
-let isUploadingSlip = false; // 🆕 กันกดส่งสลิปซ้ำรัวๆ ตอนรอบีบอัดรูป/รอ server ตอบ
 
-function uploadSlip(){
-  if(isUploadingSlip){ return; } // 🆕 กำลังส่งอยู่แล้ว ไม่ต้องทำซ้ำ
-  const file = document.getElementById("slipFile").files[0];
 
-  if(!currentOrderId){ alert("ยังไม่มีหมายเลขออเดอร์"); return; }
-  if(!file){ alert("กรุณาเลือกสลิปก่อน"); return; }
-
-  // 🆕 ล็อกปุ่มทันที ครอบคลุมตั้งแต่ช่วงบีบอัดรูปจนถึงส่งเสร็จ
-  isUploadingSlip = true;
-  const sendBtn = document.getElementById("sendSlipBtn");
-  if(sendBtn){
-    sendBtn.disabled = true;
-    sendBtn.textContent = "⏳ กำลังส่งสลิป...";
-  }
-
-  // 🆕 บีบอัดรูปสลิปก่อนส่ง (เหมือนรูปสินค้า/โลโก้) — รูปสลิปจากกล้องมือถือมักมีขนาดใหญ่มาก
-  // ถ้าส่งดิบๆ เต็มขนาด จะเสี่ยงส่งไม่สำเร็จเวลาเน็ตไม่นิ่ง (เจอปัญหานี้มาแล้วจริง)
-  const reader = new FileReader();
-  reader.onload = function(e){
-    const img = new Image();
-    img.onload = async function(){
-      const canvas = document.createElement("canvas");
-      const maxWidth = 800; // สลิปต้องอ่านตัวเลขได้ชัด เลยให้กว้างกว่ารูปสินค้าทั่วไปหน่อย
-      const scale = Math.min(1, maxWidth / img.width);
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-      const base64 = canvas.toDataURL("image/jpeg", 0.75).split(",")[1];
-
-      try {
-        await apiPost('uploadSlipToTelegram', { orderId: currentOrderId, fileName: file.name, base64: base64 });
-        alert("ส่งสลิปเรียบร้อย ✅");
-        document.getElementById("slipFile").value = "";
-        isUploadingSlip = false;
-        if(sendBtn){
-          sendBtn.disabled = true; // 🆕 ยังไม่เลือกไฟล์ใหม่ เลยล็อกไว้ก่อนจนกว่าจะแนบรอบใหม่
-          sendBtn.textContent = "📎 เลือกไฟล์แนบสลิปก่อน แล้วกดส่งสลิปตรงนี้";
-        }
-      } catch(error){
-        isUploadingSlip = false;
-        if(sendBtn){
-          sendBtn.disabled = false; // 🆕 ส่งไม่สำเร็จ ปลดล็อกให้กดส่งซ้ำได้ (ไฟล์เดิมยังอยู่)
-          sendBtn.textContent = "📤 ส่งสลิป";
-        }
-        alert("ส่งสลิปไม่สำเร็จ: " + error.message + "\n\nลองเช็คสัญญาณเน็ตแล้วกดส่งใหม่อีกครั้งได้เลยครับ (ยังไม่ถูกส่งซ้ำ ไม่ต้องกังวล)");
-      }
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function newOrder(){
-  cart = [];
-  lat = "";
-  lng = "";
-  deliveryFee = 0;
-  distanceKm = 0;
-  currentOrderId = "";
-  localStorage.removeItem("pd_currentOrderId"); // 🆕 ล้างค่าเก่าออกตอนเริ่มออเดอร์ใหม่
-  localStorage.removeItem("pd_currentOrderPhone");
-
-  document.getElementById("cart").innerHTML = '<div class="cart-empty">ยังไม่มีสินค้าในตะกร้า</div>';
-  document.getElementById("sumProduct").innerText = "0 บาท";
-  document.getElementById("sumDelivery").innerText = "0 บาท";
-  document.getElementById("sumTotal").innerText = "0 บาท";
-  document.getElementById("customerName").value = "";
-  document.getElementById("customerPhone").value = "";
-  document.getElementById("customerAddress").value = "";
-  document.getElementById("locationStatus").innerHTML = "ยังไม่ได้ปักหมุด";
-  document.getElementById("paymentBox").style.display = "none";
-  document.getElementById("statusBox").style.display = "none";
-  document.getElementById("trackEmptyState").style.display = "block";
-
-  // 🆕 รีเซ็ตแผนที่ไรเดอร์ กันข้อมูลออเดอร์เก่าค้างอยู่ตอนสั่งใหม่
-  document.getElementById("riderMapBox").style.display = "none";
-  if(riderMapInstance){
-    riderMapInstance.remove();
-    riderMapInstance = null;
-    riderMarker = null;
-    customerMarker = null;
-  }
-
-  if(document.getElementById("slipFile")){
-    document.getElementById("slipFile").value = "";
-  }
-  isUploadingSlip = false; // 🆕 รีเซ็ตสถานะล็อกปุ่มส่งสลิป กันค้างจากออเดอร์ก่อนหน้า
-
-  // 🆕 เผื่อปุ่ม "ยืนยันออเดอร์" ค้างล็อกอยู่จากรอบก่อน (กันไว้อีกชั้น เผื่อหลุดมาจากจุดอื่น)
-  isSubmittingOrder = false;
-  const confirmBtnReset = document.getElementById("confirmOrderBtn");
-  if(confirmBtnReset){
-    confirmBtnReset.disabled = false;
-    confirmBtnReset.textContent = "✅ ยืนยันออเดอร์";
-  }
-  toggleSlipSendBtn(); // 🆕 ล็อกปุ่มส่งสลิปกลับไปเป็นค่าเริ่มต้น (ยังไม่มีไฟล์) สำหรับออเดอร์ใหม่
-
-  window.scrollTo(0,0);
-  switchTab("order");
-}
 
 function showCustomerHome(){
   loadProducts();
@@ -1743,17 +1868,7 @@ window.addEventListener("load", function(){
   }
 });
 
-/** 🆕 ถ้ามีหมายเลขออเดอร์ค้างจาก localStorage (เช่น เผลอรีเฟรชหน้าเว็บ) ให้กลับไปติดตามต่อทันที */
-function restoreTrackedOrder(){
-  const savedOrderId = localStorage.getItem("pd_currentOrderId");
-  if(!savedOrderId) return;
 
-  currentOrderId = savedOrderId;
-  document.getElementById("orderIdText").innerHTML = "หมายเลขออเดอร์: " + currentOrderId;
-  document.getElementById("statusBox").style.display = "block";
-  document.getElementById("trackEmptyState").style.display = "none";
-  checkOrderStatus();
-}
 
 function renderMemberBadge(){
   const name = localStorage.getItem("pd_memberName");
@@ -1955,17 +2070,7 @@ function renderAdSlider(ads, trackId){
 }
 
 
-// 💬 แชทสด: เปิดห้องแชทของออเดอร์ที่กำลังติดตาม (channel = 'admin' | 'rider')
-function openOrderChat(channel){
-  if(!currentOrderId){ alert("ยังไม่มีออเดอร์ให้แชท"); return; }
-  ChatUI.open({
-    role: "customer",
-    orderId: currentOrderId,
-    channel: channel,
-    phone: localStorage.getItem("pd_currentOrderPhone") || "",
-    title: channel === "admin" ? "💬 แชทกับแอดมิน" : "💬 แชทกับไรเดอร์"
-  });
-}
+
 
 
 /** 📊 โชว์ "วันนี้มีคนเปิดใช้งานแล้ว X ครั้ง" บนหน้าแรก — เซิร์ฟเวอร์ส่งตัวเลขมาเฉพาะเมื่อเกิน 20 */
