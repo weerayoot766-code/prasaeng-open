@@ -164,6 +164,8 @@ function renderDashboard(result){
   html += result.isOpen ? '🟢 ร้านเปิดอยู่ — กดเพื่อปิดร้าน' : '🔴 ร้านปิดอยู่ — กดเพื่อเปิดร้าน';
   html += '</div>';
 
+  html += hoursCardHtml_(result.hours);
+
   // 🆕 เชื่อมแจ้งเตือนออเดอร์ผ่าน LINE OA
   const lineCmd = 'ผูก ' + currentStoreId + ' ' + currentPin;
   html += '<div class="card"><h2>🔔 แจ้งเตือนออเดอร์ทาง LINE</h2>';
@@ -212,6 +214,73 @@ function renderDashboard(result){
 
   document.getElementById("app").innerHTML = html;
   renderMyProducts(result.products);
+}
+
+// ================= 🕘 ตั้งเวลาเปิด-ปิดร้าน =================
+const HRS_DAYS = ["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
+const HRS_ORDER = [1,2,3,4,5,6,0];
+function hoursCardHtml_(hours){
+  let h = '<div class="card"><h2>🕘 เวลาเปิด-ปิดร้าน</h2>';
+  h += '<p style="color:#666;font-size:14px;line-height:1.6;">ลูกค้าจะเห็นเวลานี้ที่หน้าร้าน และสั่งไม่ได้นอกเวลา<br>ถ้าไม่ตั้งเวลา = เปิดตลอด (ใช้ปุ่มเปิด/ปิดร้านด้านบนอย่างเดียว)</p>';
+  h += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">';
+  h += '<input type="time" id="hrsQuickOpen" value="08:00" style="margin:0;"><span>ถึง</span><input type="time" id="hrsQuickClose" value="17:00" style="margin:0;">';
+  h += '<button type="button" onclick="hrsFillAll()" style="margin:0;width:auto;padding:10px 12px;background:#888;white-space:nowrap;">ใส่ทุกวัน</button></div>';
+  HRS_ORDER.forEach(function(d){
+    const v = hours && hours[String(d)] ? String(hours[String(d)]) : "";
+    const m = /^(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(v);
+    const on = !!m;
+    h += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">';
+    h += '<label style="width:92px;font-weight:700;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="hrsOn' + d + '" ' + (on ? 'checked' : '') + ' style="width:auto;margin:0;" onchange="hrsToggle(' + d + ')">' + HRS_DAYS[d] + '</label>';
+    h += '<input type="time" id="hrsO' + d + '" value="' + (m ? m[1] : '08:00') + '" style="margin:0;"' + (on ? '' : ' disabled') + '>';
+    h += '<span>–</span>';
+    h += '<input type="time" id="hrsC' + d + '" value="' + (m ? m[2] : '17:00') + '" style="margin:0;"' + (on ? '' : ' disabled') + '>';
+    h += '</div>';
+  });
+  h += '<p style="color:#888;font-size:12.5px;">เอาติ๊กออก = หยุดวันนั้น · ถ้าเวลาปิดน้อยกว่าเวลาเปิด (เช่น 18:00–02:00) = ปิดหลังเที่ยงคืน</p>';
+  h += '<button onclick="saveHours()" style="background:#2ecc71;">💾 บันทึกเวลาเปิด-ปิด</button>';
+  h += '<button onclick="clearHours()" style="background:#aaa;">ยกเลิกเวลา (เปิดตลอด)</button>';
+  h += '</div>';
+  return h;
+}
+function hrsToggle(d){
+  const on = document.getElementById("hrsOn" + d).checked;
+  document.getElementById("hrsO" + d).disabled = !on;
+  document.getElementById("hrsC" + d).disabled = !on;
+}
+function hrsFillAll(){
+  const o = document.getElementById("hrsQuickOpen").value, c = document.getElementById("hrsQuickClose").value;
+  if(!o || !c){ alert("กรุณาเลือกเวลาเปิดและปิด"); return; }
+  for(let d = 0; d < 7; d++){
+    document.getElementById("hrsOn" + d).checked = true;
+    document.getElementById("hrsO" + d).value = o;
+    document.getElementById("hrsC" + d).value = c;
+    hrsToggle(d);
+  }
+}
+async function saveHours(){
+  const obj = {}; let any = false;
+  for(let d = 0; d < 7; d++){
+    if(document.getElementById("hrsOn" + d).checked){
+      const o = document.getElementById("hrsO" + d).value, c = document.getElementById("hrsC" + d).value;
+      if(!o || !c){ alert("กรุณาเลือกเวลาเปิด/ปิดของวัน" + HRS_DAYS[d]); return; }
+      obj[String(d)] = o + "-" + c; any = true;
+    } else { obj[String(d)] = ""; }
+  }
+  if(!any){ alert("ต้องเปิดอย่างน้อย 1 วัน (ถ้าไม่ต้องการจำกัดเวลา กด 'ยกเลิกเวลา')"); return; }
+  try {
+    const res = await apiPost('setStoreHours', { storeId: currentStoreId, pin: currentPin, hours: JSON.stringify(obj) });
+    if(!res.success){ alert(res.message || "บันทึกไม่สำเร็จ"); return; }
+    alert("บันทึกเวลาเปิด-ปิดแล้ว ✅ (ลูกค้าจะเห็นภายในไม่กี่นาที)");
+    loadDashboard();
+  } catch(e){ alert("บันทึกไม่สำเร็จ: " + e.message); }
+}
+async function clearHours(){
+  if(!confirm("ยกเลิกเวลาเปิด-ปิด? ร้านจะเปิดตลอด (ควบคุมด้วยปุ่มเปิด/ปิดร้านอย่างเดียว)")) return;
+  try {
+    const res = await apiPost('setStoreHours', { storeId: currentStoreId, pin: currentPin, hours: "" });
+    if(!res.success){ alert(res.message || "ไม่สำเร็จ"); return; }
+    loadDashboard();
+  } catch(e){ alert("ไม่สำเร็จ: " + e.message); }
 }
 
 async function toggleStoreOpen(currentlyOpen){

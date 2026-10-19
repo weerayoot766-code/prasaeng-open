@@ -104,6 +104,11 @@ const DEFAULT_BLUE_CARD_ = "0932945790"; // 🆕 ถ้าลูกค้าไ�
 function openQtyModal(index){
   const product = window.productsData[index];
   if(product.inStock === false){ alert("สินค้านี้หมดชั่วคราว ขออภัยครับ"); return; }
+  const openState = shopCanOrderNow_(String(product.shop || ""));
+  if(!openState.canOrder){
+    alert(openState.paused ? "ร้านนี้พักรับออเดอร์ชั่วคราว ขออภัยครับ" : "ตอนนี้ร้านปิดแล้วครับ" + (openState.next ? " (" + openState.next + " น.)" : ""));
+    return;
+  }
   pendingProductIndex = index;
   pendingQty = 1;
 
@@ -425,6 +430,146 @@ const CATEGORY_DISPLAY_ORDER = [
   { key: "อื่นๆ", icon: "🧩" }
 ];
 
+// ============================================================
+// 🕘 เวลาเปิด-ปิดร้าน (ฝั่งลูกค้า) — ใช้ "เวลาไทย" คำนวณจากนาฬิกา UTC ของเครื่อง (ไม่ขึ้นกับ timezone ที่ตั้งในมือถือ)
+// ข้อมูล: storeInfo.hours = {"0":"","1":"08:00-17:00",...} (0=อาทิตย์) · null = ไม่จำกัดเวลา · storeInfo.isOpen=false = พักร้านชั่วคราว (ชนะเวลา)
+// ตัวตัดสินจริงตอนสั่งอยู่ที่เซิร์ฟเวอร์ (Code.gs) ตรงนี้แค่แสดงผล/กันกดพลาด
+// ============================================================
+const THAI_DAY_FULL_ = ["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
+const THAI_DAY_SHORT_ = ["อา","จ","อ","พ","พฤ","ศ","ส"];
+
+function thaiNow_(){
+  const t = new Date(Date.now() + 7 * 3600 * 1000);
+  return { dow: t.getUTCDay(), min: t.getUTCHours() * 60 + t.getUTCMinutes() };
+}
+function hoursRange_(str){
+  const m = /^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/.exec(String(str || ""));
+  if(!m) return null;
+  const a = Number(m[1]) * 60 + Number(m[2]);
+  let b = Number(m[3]) * 60 + Number(m[4]);
+  if(b <= a){ b += 1440; }
+  return { open: a, close: b, openText: m[1] + ":" + m[2], closeText: m[3] + ":" + m[4] };
+}
+function hhmm_(min){ min = ((min % 1440) + 1440) % 1440; return ("0" + Math.floor(min / 60)).slice(-2) + ":" + ("0" + (min % 60)).slice(-2); }
+
+/** สถานะร้านตอนนี้ → { canOrder, cls: g|o|k|r, pill, line } */
+function shopState_(info){
+  if(!info){ return { canOrder: true, cls: "g", pill: "", line: "" }; }
+  if(info.isOpen === false){ return { canOrder: false, cls: "r", pill: "🔴 พักร้าน", line: "ร้านปิดชั่วคราว", paused: true }; }
+  const h = info.hours;
+  if(!h){ return { canOrder: true, cls: "g", pill: "", line: "" }; }
+
+  const now = thaiNow_();
+  const today = hoursRange_(h[String(now.dow)]);
+  const yest = hoursRange_(h[String((now.dow + 6) % 7)]);
+  let openNow = false, closeAt = 0, todayText = "";
+  if(today){ todayText = today.openText + "–" + today.closeText; }
+  if(today && now.min >= today.open && now.min < today.close){ openNow = true; closeAt = today.close; }
+  else if(yest && yest.close > 1440 && now.min + 1440 < yest.close){ openNow = true; closeAt = yest.close - 1440; if(!todayText){ todayText = "ถึง " + hhmm_(closeAt); } }
+
+  if(openNow){
+    const left = closeAt - now.min;
+    if(left <= 30){ return { canOrder: true, cls: "o", pill: "🟠 ปิดใน " + left + " นาที", line: "🕘 " + todayText }; }
+    return { canOrder: true, cls: "g", pill: "🟢 เปิดอยู่", line: "🕘 " + todayText };
+  }
+
+  // ปิดอยู่ → หาว่าเปิดอีกทีเมื่อไร
+  let next = "";
+  if(today && now.min < today.open){ next = "เปิดวันนี้ " + today.openText; }
+  else {
+    for(let d = 1; d <= 7; d++){
+      const r = hoursRange_(h[String((now.dow + d) % 7)]);
+      if(r){ next = "เปิด" + (d === 1 ? "พรุ่งนี้" : "วัน" + THAI_DAY_FULL_[(now.dow + d) % 7]) + " " + r.openText; break; }
+    }
+  }
+  if(!today){ return { canOrder: false, cls: "k", pill: "หยุดวันนี้", line: next, dayOff: true, next: next }; }
+  return { canOrder: false, cls: "k", pill: "ปิดอยู่", line: next, next: next };
+}
+
+/** แสดงเวลา+ป้ายสถานะใต้ชื่อร้านใน tile */
+function shopTileStateHtml_(st){
+  let h = "";
+  if(st.line){ h += '<span class="shop-hours">' + escapeHtml(st.line) + '</span>'; }
+  if(st.pill){ h += '<span class="shop-state ' + st.cls + '">' + escapeHtml(st.pill) + '</span>'; }
+  return h;
+}
+
+/** ตารางเวลาทั้งสัปดาห์ (จัดกลุ่มวันที่เวลาเหมือนกัน) */
+function shopHoursTableHtml_(info){
+  const h = info && info.hours;
+  if(!h) return "";
+  const now = thaiNow_();
+  const rows = [];
+  for(let d = 0; d < 7; d++){
+    const r = hoursRange_(h[String(d)]);
+    rows.push({ d: d, text: r ? r.openText + "–" + r.closeText : "หยุด", off: !r });
+  }
+  const order = [1,2,3,4,5,6,0]; // จันทร์ → อาทิตย์
+  const groups = [];
+  order.forEach(function(d){
+    const row = rows[d];
+    const last = groups[groups.length - 1];
+    if(last && last.text === row.text && last.days[last.days.length - 1] === (d === 0 ? 7 : d) - 1 && d !== 0 || (last && last.text === row.text && d === 0 && last.days[last.days.length - 1] === 6)){
+      last.days.push(d === 0 ? 7 : d);
+      last.hasToday = last.hasToday || d === now.dow;
+    } else {
+      groups.push({ text: row.text, off: row.off, days: [d === 0 ? 7 : d], hasToday: d === now.dow });
+    }
+  });
+  let html = '<div class="hrs-table">';
+  groups.forEach(function(g){
+    const first = g.days[0] % 7, lastD = g.days[g.days.length - 1] % 7;
+    const label = g.days.length === 1 ? THAI_DAY_FULL_[first] : THAI_DAY_FULL_[first] + " – " + THAI_DAY_FULL_[lastD];
+    html += '<div class="' + (g.hasToday ? 'today ' : '') + (g.off ? 'off' : '') + '"><span>' + label + (g.hasToday ? ' (วันนี้)' : '') + '</span><span>' + g.text + '</span></div>';
+  });
+  return html + '</div>';
+}
+
+function shopHoursCardHtml_(shopName){
+  const info = (window.storesData || []).find(function(s){ return s.name === shopName; });
+  const st = shopState_(info);
+  let html = '';
+  if(!st.canOrder){
+    html += '<div class="hrs-banner">' +
+      (st.paused ? '🔴 ร้านพักรับออเดอร์ชั่วคราว' : '🔴 ตอนนี้ร้านปิดแล้ว' + (st.next ? '<br><span>' + escapeHtml(st.next) + ' น.</span>' : '')) +
+      '</div>';
+  }
+  if(info && info.hours){
+    html += '<div class="hrs-row"><span class="shop-state ' + st.cls + '">' + escapeHtml(st.pill || "") + '</span>' +
+      '<span class="hrs-more" onclick="document.getElementById(\'hrsTable\').classList.toggle(\'show\')">🕘 ดูเวลา ˅</span></div>' +
+      '<div id="hrsTable" class="hrs-wrap">' + shopHoursTableHtml_(info) + '</div>';
+  }
+  if(!st.canOrder){ html += '<div class="hrs-note">ดูเมนูได้ แต่สั่งได้เฉพาะเวลาที่ร้านเปิด</div>'; }
+  return html;
+}
+
+function shopCanOrderNow_(shopName){
+  const info = (window.storesData || []).find(function(s){ return s.name === shopName; });
+  return shopState_(info);
+}
+
+/** ทุก 1 นาที: อัปเดตป้ายสถานะ (หน้าเลือกร้าน + การ์ดเวลาในหน้าร้าน + ปุ่มสั่ง) ไม่แตะตะกร้า */
+function refreshHoursUI_(){
+  try {
+    const modal = document.getElementById("qtyModalOverlay");
+    if(modal && modal.style.display === "flex") return;
+    if(typeof renderHomeRecommendedGrid === "function"){ renderHomeRecommendedGrid(); }
+    if(typeof renderHomeShopGrid === "function"){ renderHomeShopGrid(); }
+    const box = document.getElementById("shopHoursBox");
+    if(box && selectedShopName){
+      const open = document.getElementById("hrsTable") && document.getElementById("hrsTable").classList.contains("show");
+      box.innerHTML = shopHoursCardHtml_(selectedShopName);
+      if(open && document.getElementById("hrsTable")){ document.getElementById("hrsTable").classList.add("show"); }
+      const can = shopCanOrderNow_(selectedShopName).canOrder;
+      document.querySelectorAll("#productList .add-btn").forEach(function(b){
+        b.disabled = !can;
+        b.textContent = can ? "เพิ่มสินค้าลงตะกร้า" : "ร้านปิดอยู่";
+      });
+    }
+  } catch(e){}
+}
+setInterval(refreshHoursUI_, 60000);
+
 /** 🆕 สร้าง tile ร้านค้า 1 อัน ใช้ร่วมกันทั้งแถว "เคยสั่ง" / กริดตามหมวด */
 function buildShopTileHtml(shopName){
   const shopProducts = window.productsData.filter(function(p){
@@ -442,10 +587,9 @@ function buildShopTileHtml(shopName){
     }
   }
 
-  const isOpen = !storeInfo || storeInfo.isOpen !== false;
-  const clickAction = isOpen
-    ? "showProductsByShop('" + escapeHtml(shopName) + "')"
-    : "alert('ร้านนี้ปิดให้บริการชั่วคราวครับ')";
+  const stt = shopState_(storeInfo);
+  const isOpen = stt.canOrder;
+  const clickAction = "showProductsByShop('" + escapeHtml(shopName) + "')"; // ร้านปิดก็เข้าดูเมนูได้ (สั่งไม่ได้)
 
   let html = '<div class="shop-tile' + (isOpen ? '' : ' shop-closed') + '" onclick="' + clickAction + '">';
   if(shopImage !== ""){
@@ -454,7 +598,7 @@ function buildShopTileHtml(shopName){
     html += '<div class="shop-tile-icon">🏪</div>';
   }
   html += '<span class="shop-tile-name">' + escapeHtml(shopName) + '</span>';
-  if(!isOpen){ html += '<span class="shop-closed-badge">ปิดอยู่</span>'; }
+  html += shopTileStateHtml_(stt);
   html += '</div>';
   return html;
 }
@@ -566,10 +710,9 @@ function renderHomeShopGrid(){
       }
     }
 
-    const isOpen = !storeInfo || storeInfo.isOpen !== false;
-    const clickAction = isOpen
-      ? "goToShopFromAd('" + escapeHtml(shop) + "')"
-      : "alert('ร้านนี้ปิดให้บริการชั่วคราวครับ')";
+    const stt = shopState_(storeInfo);
+    const isOpen = stt.canOrder;
+    const clickAction = "goToShopFromAd('" + escapeHtml(shop) + "')";
 
     html += '<div class="shop-tile' + (isOpen ? '' : ' shop-closed') + '" onclick="' + clickAction + '">';
     if(shopImage !== ""){
@@ -578,7 +721,7 @@ function renderHomeShopGrid(){
       html += '<div class="shop-tile-icon">🏪</div>';
     }
     html += '<span class="shop-tile-name">' + escapeHtml(shop) + '</span>';
-    if(!isOpen){ html += '<span class="shop-closed-badge">ปิดอยู่</span>'; }
+    html += shopTileStateHtml_(stt);
     html += '</div>';
   });
 
@@ -603,12 +746,10 @@ function renderHomeRecommendedGrid(){
   let html = '<div class="recommended-row">';
 
   recommendedShops.forEach(function(s){
-    const isOpen = s.isOpen !== false;
-    const clickAction = isOpen
-      ? "goToShopFromAd('" + escapeHtml(s.name) + "')"
-      : "alert('ร้านนี้ปิดให้บริการชั่วคราวครับ')";
+    const stt = shopState_(s);
+    const clickAction = "goToShopFromAd('" + escapeHtml(s.name) + "')";
 
-    html += '<div class="recommended-card" onclick="' + clickAction + '">';
+    html += '<div class="recommended-card' + (stt.canOrder ? '' : ' shop-closed') + '" onclick="' + clickAction + '">';
     html += '<span class="recommended-badge">🏆 ร้านแนะนำ</span><br>';
     if(s.logo){
       html += '<img class="recommended-card-img" src="' + escapeHtml(s.logo) + '">';
@@ -617,6 +758,7 @@ function renderHomeRecommendedGrid(){
     }
     html += '<span class="recommended-card-name">' + escapeHtml(s.name) + '</span>';
     html += '<span class="recommended-card-category">' + escapeHtml(s.category || "") + '</span>';
+    html += shopTileStateHtml_(stt);
     html += '</div>';
   });
 
@@ -654,7 +796,9 @@ function showProductsByShop(shopName, isRestore){
     </button>
     <div class="card">
       <h2>${escapeHtml(shopName)}</h2>
+      <div id="shopHoursBox">${shopHoursCardHtml_(shopName)}</div>
   `;
+  const shopCanOrder = shopCanOrderNow_(shopName).canOrder;
   html += '<div class="products-grid">';
 
   window.productsData.forEach(function(product, index){
@@ -676,8 +820,8 @@ function showProductsByShop(shopName, isRestore){
     html += '<p class="product-desc">🍴 ' + escapeHtml(description) + '</p>';
     html += '<p><b>' + price + ' บาท</b></p>';
     if(inStock){
-      html += '<button type="button" class="add-btn" data-index="' + index + '" onclick="event.stopPropagation(); openQtyModal(' + index + ')">';
-      html += 'เพิ่มสินค้าลงตะกร้า';
+      html += '<button type="button" class="add-btn" data-index="' + index + '"' + (shopCanOrder ? '' : ' disabled') + ' onclick="event.stopPropagation(); openQtyModal(' + index + ')">';
+      html += (shopCanOrder ? 'เพิ่มสินค้าลงตะกร้า' : 'ร้านปิดอยู่');
       html += '</button>';
     } else {
       html += '<button type="button" disabled>สินค้าหมดชั่วคราว</button>';
@@ -926,6 +1070,11 @@ let isSubmittingOrder = false; // 🆕 กันลูกค้ากดปุ�
 async function confirmOrder(){
   if(isSubmittingOrder){ return; } // 🆕 กำลังส่งอยู่แล้ว ไม่ต้องทำซ้ำแม้กดซ้ำมากี่ครั้งก็ตาม
   if(cart.length===0){ alert("ยังไม่มีสินค้า"); return; }
+  const confirmState = shopCanOrderNow_(selectedShopName);
+  if(!confirmState.canOrder){
+    alert(confirmState.paused ? "ร้านนี้พักรับออเดอร์ชั่วคราว ขออภัยครับ" : "ตอนนี้ร้านปิดแล้วครับ" + (confirmState.next ? " (" + confirmState.next + " น.)" : "") + "\nกรุณาสั่งใหม่ตอนร้านเปิดนะครับ");
+    return;
+  }
 
   let name = document.getElementById("customerName").value;
   let phone = document.getElementById("customerPhone").value;
