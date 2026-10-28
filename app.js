@@ -2251,3 +2251,82 @@ async function showVisitBadge(){
 }
 // เลื่อนไปโหลดทีหลัง ให้ร้าน/สินค้าขึ้นก่อน
 setTimeout(showVisitBadge, 5000);
+
+// ============================================================
+// 📲 ติดตั้งแอปลงหน้าจอโฮม (PWA)
+// - Android/Chrome: ใช้ prompt ติดตั้งของเบราว์เซอร์ (beforeinstallprompt)
+// - iPhone/Safari: ไม่มี prompt อัตโนมัติ → แสดงขั้นตอน "แชร์ > เพิ่มไปยังหน้าจอโฮม"
+// - เปิดในแอปอื่น (LINE/Facebook) ติดตั้งไม่ได้ → บอกให้เปิดในเบราว์เซอร์ก่อน
+// ซ่อนอัตโนมัติถ้าติดตั้งแล้ว หรือกด ✕ (ซ่อน 7 วัน)
+// ============================================================
+let deferredInstallPrompt_ = null;
+function isStandalone_(){
+  try { return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true; } catch(e){ return false; }
+}
+function installEnv_(){
+  const ua = navigator.userAgent || "";
+  const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const inApp = /Line\/|FBAN|FBAV|Instagram|MicroMessenger|Messenger/i.test(ua);
+  const safari = ios && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua) && !inApp;
+  return { ios: ios, inApp: inApp, safari: safari, android: /Android/i.test(ua) };
+}
+function installDismissed_(){
+  try { const t = Number(localStorage.getItem("pd_installDismissed") || 0); return t && (Date.now() - t) < 7 * 86400000; } catch(e){ return false; }
+}
+function showInstallBar_(){
+  const bar = document.getElementById("installBar");
+  if(!bar || isStandalone_() || installDismissed_()) return;
+  const env = installEnv_();
+  // มีให้ติดตั้งได้จริงเมื่อ: เบราว์เซอร์ให้ prompt / iPhone Safari / อยู่ในแอปอื่นที่ต้องแนะนำให้เปิดเบราว์เซอร์ / มือถือทั่วไป
+  if(deferredInstallPrompt_ || env.safari || env.inApp || env.ios || env.android){ bar.style.display = "flex"; }
+}
+window.addEventListener("beforeinstallprompt", function(e){
+  e.preventDefault(); deferredInstallPrompt_ = e; showInstallBar_();
+});
+window.addEventListener("appinstalled", function(){
+  deferredInstallPrompt_ = null;
+  const bar = document.getElementById("installBar"); if(bar) bar.style.display = "none";
+});
+function dismissInstall(){
+  try { localStorage.setItem("pd_installDismissed", String(Date.now())); } catch(e){}
+  const bar = document.getElementById("installBar"); if(bar) bar.style.display = "none";
+}
+function openInstallHelp_(title, html){
+  document.getElementById("installHelpTitle").textContent = title;
+  document.getElementById("installHelpBody").innerHTML = html;
+  document.getElementById("installHelp").style.display = "flex";
+}
+function closeInstallHelp(){ document.getElementById("installHelp").style.display = "none"; }
+function installApp(){
+  const env = installEnv_();
+  if(deferredInstallPrompt_){
+    deferredInstallPrompt_.prompt();
+    deferredInstallPrompt_.userChoice.then(function(){ deferredInstallPrompt_ = null; }).catch(function(){});
+    return;
+  }
+  if(env.inApp){
+    openInstallHelp_("เปิดในเบราว์เซอร์ก่อนนะครับ",
+      "<p>ตอนนี้เปิดอยู่ในแอปอื่น (เช่น LINE) ซึ่งติดตั้งไม่ได้</p><ol>" +
+      "<li>กดปุ่ม <span class='ic'>⋮</span> หรือ <span class='ic'>⋯</span> มุมขวาบน</li>" +
+      "<li>เลือก <b>เปิดในเบราว์เซอร์</b> (Chrome หรือ Safari)</li>" +
+      "<li>แล้วกดปุ่ม <b>ติดตั้ง</b> อีกครั้ง</li></ol>");
+    return;
+  }
+  if(env.ios){
+    if(!env.safari){
+      openInstallHelp_("ใช้ Safari ติดตั้งนะครับ", "<p>บน iPhone ต้องเปิดเว็บนี้ด้วย <b>Safari</b> เท่านั้น ถึงจะติดตั้งได้ กดคัดลอกลิงก์แล้วไปเปิดใน Safari ครับ</p>");
+      return;
+    }
+    openInstallHelp_("ติดตั้งบน iPhone",
+      "<ol><li>กดปุ่ม <span class='ic'>แชร์ ⬆️</span> ที่แถบด้านล่างของ Safari</li>" +
+      "<li>เลื่อนลงแล้วเลือก <b>เพิ่มไปยังหน้าจอโฮม</b></li>" +
+      "<li>กด <b>เพิ่ม</b> มุมขวาบน</li></ol><p>ไอคอนพระแสงเดลิเวอรี่จะขึ้นที่หน้าจอโฮมครับ</p>");
+    return;
+  }
+  openInstallHelp_("ติดตั้งบน Android",
+    "<ol><li>กดปุ่ม <span class='ic'>⋮</span> มุมขวาบนของ Chrome</li>" +
+    "<li>เลือก <b>ติดตั้งแอป</b> หรือ <b>เพิ่มไปยังหน้าจอหลัก</b></li>" +
+    "<li>กด <b>ติดตั้ง</b></li></ol>");
+}
+// ถ้าเบราว์เซอร์ไม่ส่ง prompt มา (เช่น iPhone) ก็ยังแสดงแถบให้กด
+setTimeout(showInstallBar_, 1500);

@@ -4,7 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<link rel="apple-touch-icon" href="https://i.postimg.cc/F15t6zL4/phra-saeng-del-wexr-loko.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ff2f92">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="พระแสงเดลิเวอรี่">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="https://i.postimg.cc/F15t6zL4/phra-saeng-del-wexr-loko.png">
 
 <title>พระแสงเดลิเวอรี่</title>
@@ -33,6 +39,13 @@
        sizes="(max-width:600px) 100vw, 700px"
        width="1200" height="800" alt="พระแสงเดลิเวอรี่"
        fetchpriority="high" decoding="async" class="banner-img">
+</div>
+
+<div id="installBar" class="install-bar" style="display:none;">
+  <span class="install-ico">📲</span>
+  <div class="install-txt"><b>ติดตั้งแอปไว้หน้าจอโฮม</b><small>สั่งง่ายขึ้น เปิดได้ทันที ไม่ต้องหาลิงก์</small></div>
+  <button type="button" class="install-go" onclick="installApp()">ติดตั้ง</button>
+  <button type="button" class="install-x" onclick="dismissInstall()" aria-label="ปิด">✕</button>
 </div>
 
 <div class="ad-slider">
@@ -290,5 +303,12 @@
 <script src="chat.js"></script>
 <script src="app.js"></script>
 
+<div id="installHelp" class="install-help" style="display:none;" onclick="if(event.target===this)closeInstallHelp()">
+  <div class="install-help-box">
+    <h3 id="installHelpTitle">ติดตั้งแอป</h3>
+    <div id="installHelpBody"></div>
+    <button type="button" class="install-go full" style="margin-top:12px;" onclick="closeInstallHelp()">เข้าใจแล้ว</button>
+  </div>
+</div>
 </body>
 </html>
