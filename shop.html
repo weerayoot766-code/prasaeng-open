@@ -56,6 +56,22 @@ function goHome(){
 }
 
 let currentStoreId = "";
+// ============================================================
+// 🖼️ รูปจากเว็บฝากรูปฟรี (imgbb / postimg) → โหลดผ่านตัวแคชรูป wsrv.nl (เก็บสำเนา + ย่อรูป + ไม่โดนจำกัดตาม IP ร้าน)
+// ถ้า wsrv.nl ใช้ไม่ได้/รูปไม่ขึ้น จะถอยกลับไปโหลดจากลิงก์ต้นทางตรงๆ อัตโนมัติ (ดู listener ด้านล่าง)
+// ============================================================
+function imgUrl_(url, w){
+  url = String(url || "");
+  if(!/^https?:\/\/(i\.)?(ibb\.co|postimg\.cc)\//i.test(url)){ return url; }
+  return "https://wsrv.nl/?url=" + encodeURIComponent(url) + "&w=" + (w || 400) + "&output=webp&q=82";
+}
+window.addEventListener("error", function(ev){
+  const el = ev.target;
+  if(!el || el.tagName !== "IMG" || el.dataset.imgFb){ return; }
+  const m = /^https:\/\/wsrv\.nl\/\?url=([^&]+)/.exec(el.src || "");
+  if(m){ el.dataset.imgFb = "1"; try { el.src = decodeURIComponent(m[1]); } catch(e){} }
+}, true);
+
 let currentPin = "";
 let currentStoreName = "";
 let myProductsCache = {};
@@ -154,7 +170,7 @@ function renderDashboard(result){
   // 🆕 header ใส่โลโก้ร้าน (ถ้ามี) ไว้ข้างชื่อร้าน
   html += '<div class="store-header" style="justify-content:flex-start;gap:14px;">';
   if(result.logo){
-    html += '<img src="' + escapeHtml(result.logo) + '" style="width:56px;height:56px;border-radius:14px;object-fit:cover;background:#fff;flex-shrink:0;">';
+    html += '<img src="' + escapeHtml(imgUrl_(result.logo, 160)) + '" style="width:56px;height:56px;border-radius:14px;object-fit:cover;background:#fff;flex-shrink:0;">';
   }
   html += '<div class="info" style="flex:1;"><b>' + escapeHtml(currentStoreName) + '</b><span>รหัสร้าน: ' + escapeHtml(currentStoreId) + '</span></div>';
   html += '<button class="logout-btn" style="flex-shrink:0;" onclick="logout()">ออกจากระบบ</button>';
@@ -183,7 +199,7 @@ function renderDashboard(result){
   html += '<div class="card"><h2>🖼️ โลโก้ร้าน</h2>';
   html += '<p style="color:#666;font-size:14px;">โลโก้นี้จะแสดงในหน้ารายชื่อร้านค้าให้ลูกค้าเห็น</p>';
   if(result.logo){
-    html += '<img src="' + escapeHtml(result.logo) + '" style="width:100px;height:100px;object-fit:cover;border-radius:14px;margin-bottom:10px;background:#f5f5f5;">';
+    html += '<img src="' + escapeHtml(imgUrl_(result.logo, 240)) + '" style="width:100px;height:100px;object-fit:cover;border-radius:14px;margin-bottom:10px;background:#f5f5f5;">';
   }
   html += '<input type="file" id="logoFile" accept="image/*">';
   html += '<button onclick="submitLogo()" style="background:#2ecc71;">💾 บันทึกโลโก้ร้าน</button>';
@@ -397,7 +413,7 @@ function renderMyProducts(products){
     const inStock = p.inStock !== false; // 🆕 ค่าเริ่มต้น = มีสินค้า
     html +=
       '<div id="prodRow_' + p.rowIndex + '" class="prod-row' + (inStock ? '' : ' prod-row-out') + '">' +
-        '<img src="' + escapeHtml(p.image || "") + '">' +
+        '<img src="' + escapeHtml(imgUrl_(p.image || "", 200)) + '">' +
         '<div class="info">' +
           '<b>' + escapeHtml(p.name) + '</b><br>' +
           '<span>' + Number(p.price) + ' บาท | ' + escapeHtml(p.category || "") + '</span><br>' +

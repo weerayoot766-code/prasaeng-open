@@ -1,3 +1,19 @@
+// ============================================================
+// 🖼️ รูปจากเว็บฝากรูปฟรี (imgbb / postimg) → โหลดผ่านตัวแคชรูป wsrv.nl (เก็บสำเนา + ย่อรูป + ไม่โดนจำกัดตาม IP ร้าน)
+// ถ้า wsrv.nl ใช้ไม่ได้/รูปไม่ขึ้น จะถอยกลับไปโหลดจากลิงก์ต้นทางตรงๆ อัตโนมัติ (ดู listener ด้านล่าง)
+// ============================================================
+function imgUrl_(url, w){
+  url = String(url || "");
+  if(!/^https?:\/\/(i\.)?(ibb\.co|postimg\.cc)\//i.test(url)){ return url; }
+  return "https://wsrv.nl/?url=" + encodeURIComponent(url) + "&w=" + (w || 400) + "&output=webp&q=82";
+}
+window.addEventListener("error", function(ev){
+  const el = ev.target;
+  if(!el || el.tagName !== "IMG" || el.dataset.imgFb){ return; }
+  const m = /^https:\/\/wsrv\.nl\/\?url=([^&]+)/.exec(el.src || "");
+  if(m){ el.dataset.imgFb = "1"; try { el.src = decodeURIComponent(m[1]); } catch(e){} }
+}, true);
+
 let cart = [];
 let lat = "";
 let lng = "";
@@ -112,7 +128,7 @@ function openQtyModal(index){
   pendingProductIndex = index;
   pendingQty = 1;
 
-  document.getElementById("qtyModalImg").src = product.image || "";
+  document.getElementById("qtyModalImg").src = imgUrl_(product.image || "", 700);
   document.getElementById("qtyModalImg").style.display = product.image ? "block" : "none";
   document.getElementById("qtyModalName").innerText = product.name;
   document.getElementById("qtyModalPrice").innerText = Number(product.price) + " บาท / รายการ";
@@ -371,7 +387,7 @@ function renderSearchResults(query){
       const shopImage = storeInfo && storeInfo.logo ? storeInfo.logo : "";
       html += '<div class="shop-tile" onclick="showProductsByShop(\'' + escapeHtml(shop) + '\')">';
       if(shopImage){
-        html += '<img class="shop-tile-img" src="' + escapeHtml(shopImage) + '">';
+        html += '<img class="shop-tile-img" src="' + escapeHtml(imgUrl_(shopImage, 240)) + '">';
       } else {
         html += '<div class="shop-tile-icon">🏪</div>';
       }
@@ -386,7 +402,7 @@ function renderSearchResults(query){
       const p = item.product;
       const inStock = p.inStock !== false;
       html += '<div class="product-card' + (inStock ? '' : ' out-of-stock') + '" onclick="' + (inStock ? "openSearchProduct(" + item.index + ")" : "") + '">';
-      if(p.image){ html += '<img class="product-img" src="' + escapeHtml(p.image) + '">'; }
+      if(p.image){ html += '<img class="product-img" src="' + escapeHtml(imgUrl_(p.image, 420)) + '">'; }
       if(!inStock){ html += '<span class="out-of-stock-badge">หมดชั่วคราว</span>'; }
       html += '<h3>' + escapeHtml(p.name) + '</h3>';
       html += '<p class="product-desc" style="font-size:11px;">🏪 ' + escapeHtml(p.shop) + '</p>';
@@ -593,7 +609,7 @@ function buildShopTileHtml(shopName){
 
   let html = '<div class="shop-tile' + (isOpen ? '' : ' shop-closed') + '" onclick="' + clickAction + '">';
   if(shopImage !== ""){
-    html += '<img class="shop-tile-img" src="' + escapeHtml(shopImage) + '">';
+    html += '<img class="shop-tile-img" src="' + escapeHtml(imgUrl_(shopImage, 240)) + '">';
   } else {
     html += '<div class="shop-tile-icon">🏪</div>';
   }
@@ -716,7 +732,7 @@ function renderHomeShopGrid(){
 
     html += '<div class="shop-tile' + (isOpen ? '' : ' shop-closed') + '" onclick="' + clickAction + '">';
     if(shopImage !== ""){
-      html += '<img class="shop-tile-img" src="' + escapeHtml(shopImage) + '">';
+      html += '<img class="shop-tile-img" src="' + escapeHtml(imgUrl_(shopImage, 240)) + '">';
     } else {
       html += '<div class="shop-tile-icon">🏪</div>';
     }
@@ -752,7 +768,7 @@ function renderHomeRecommendedGrid(){
     html += '<div class="recommended-card' + (stt.canOrder ? '' : ' shop-closed') + '" onclick="' + clickAction + '">';
     html += '<span class="recommended-badge">🏆 ร้านแนะนำ</span><br>';
     if(s.logo){
-      html += '<img class="recommended-card-img" src="' + escapeHtml(s.logo) + '">';
+      html += '<img class="recommended-card-img" src="' + escapeHtml(imgUrl_(s.logo, 300)) + '">';
     } else {
       html += '<div class="recommended-card-icon">🏪</div>';
     }
@@ -813,7 +829,7 @@ function showProductsByShop(shopName, isRestore){
 
     html += '<div class="product-card' + (inStock ? '' : ' out-of-stock') + '" onclick="' + (inStock ? "openQtyModal(" + index + ")" : "") + '">';
     if(image !== ""){
-      html += '<img class="product-img" src="' + escapeHtml(image) + '">';
+      html += '<img class="product-img" src="' + escapeHtml(imgUrl_(image, 420)) + '">';
     }
     if(!inStock){ html += '<span class="out-of-stock-badge">หมดชั่วคราว</span>'; }
     html += '<h3>' + escapeHtml(name) + '</h3>';
@@ -1307,7 +1323,7 @@ function orderCardHtml_(o){
 
   if(o.done){
     h += '<div class="oc-note ok">✅ ส่งสำเร็จแล้ว ขอบคุณที่ใช้บริการครับ</div>';
-    if(o.proof){ h += '<img src="' + escapeHtml(o.proof) + '" class="oc-proof" alt="รูปยืนยันการส่งของ">'; }
+    if(o.proof){ h += '<img src="' + escapeHtml(imgUrl_(o.proof, 800)) + '" class="oc-proof" alt="รูปยืนยันการส่งของ">'; }
   }
 
   h += '<div class="oc-btns" style="margin-top:12px;"><button class="oc-btn" onclick="openOrderChat(\'admin\',\'' + id + '\')">💬 แชทหาแอดมิน</button></div>';
@@ -1806,7 +1822,7 @@ function renderMyProducts(products){
   products.forEach(function(p){
     html +=
       '<div id="prodRow_' + p.rowIndex + '" style="border:1px solid #eee;border-radius:12px;padding:10px;margin-bottom:10px;display:flex;gap:10px;align-items:center;">' +
-        '<img src="' + escapeHtml(p.image || "") + '" style="width:60px;height:60px;object-fit:cover;border-radius:8px;background:#f5f5f5;">' +
+        '<img src="' + escapeHtml(imgUrl_(p.image || "", 160)) + '" style="width:60px;height:60px;object-fit:cover;border-radius:8px;background:#f5f5f5;">' +
         '<div style="flex:1;">' +
           '<b>' + escapeHtml(p.name) + '</b><br>' +
           '<span>' + Number(p.price) + ' บาท | ' + escapeHtml(p.category || "") + '</span><br>' +
@@ -2197,7 +2213,7 @@ function renderAdSlider(ads, trackId){
 
   track.innerHTML = allAds.map(function(ad){
     const clickable = ad.linkShopName ? 'style="cursor:pointer;" onclick="adClickHandler(\'' + escapeHtml(ad.linkShopName) + '\')"' : '';
-    return '<img src="' + escapeHtml(ad.imageUrl) + '" ' + clickable + '>';
+    return '<img src="' + escapeHtml(imgUrl_(ad.imageUrl, 1000)) + '" ' + clickable + '>';
   }).join('');
 
   const imageWidth = 330;
