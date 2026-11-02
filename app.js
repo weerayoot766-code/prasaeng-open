@@ -1011,7 +1011,15 @@ function openOrderMapPicker_(why){
   document.getElementById("orderMapInfo").innerHTML = "👆 เลื่อนแผนที่ให้ <b>หมุดตรงกลาง</b> อยู่ที่บ้าน/จุดรับของ แล้วกดยืนยัน";
   if(!orderPickMap_){
     orderPickMap_ = L.map("orderMapBox").setView(start, 16);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(orderPickMap_);
+    // 🆕 สลับได้ 2 แบบ: ภาพดาวเทียม+ชื่อสถานที่ (เห็นหลังคาบ้าน/ร้าน) กับแผนที่ถนน — เริ่มที่ดาวเทียม
+    const esri = "https://server.arcgisonline.com/ArcGIS/rest/services/";
+    const sat = L.layerGroup([
+      L.tileLayer(esri + "World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 18, attribution: "Esri" }),
+      L.tileLayer(esri + "Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 18 })
+    ]);
+    const street = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" });
+    sat.addTo(orderPickMap_);
+    L.control.layers({ "🛰️ ดาวเทียม": sat, "🗺️ ถนน": street }, null, { position: "topright", collapsed: false }).addTo(orderPickMap_);
   } else {
     orderPickMap_.setView(start, 16);
   }
