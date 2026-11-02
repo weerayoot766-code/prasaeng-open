@@ -999,7 +999,9 @@ function openOrderMapPicker_(why){
       applyLocation(c.lat, c.lng, "เลือกบนแผนที่");
     };
   }
-  document.getElementById("orderMapWhy").textContent = "⚠️ " + why + " — เลือกตำแหน่งบนแผนที่แทนได้เลย";
+  const whyEl = document.getElementById("orderMapWhy");
+  whyEl.style.display = why ? "block" : "none";
+  whyEl.textContent = why ? "⚠️ " + why + " — เลือกตำแหน่งบนแผนที่แทนได้เลย" : "";
   ov.style.display = "flex";
   const start = (lat && lng) ? [Number(lat), Number(lng)] : [shopLat, shopLng];
   orderPickStart_ = start;
