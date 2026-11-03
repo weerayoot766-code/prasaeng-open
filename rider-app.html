@@ -231,7 +231,7 @@ document.addEventListener('click', unlockAudio, { once:true });
 /* ---------- สถานะแอพ ---------- */
 let DATA = { fresh:[], skipped:[], active:[], done:[], today:{count:0,fee:0} };
 let TAB = 'new', PAGE = 'jobs', SIG = '', SEEN = null, ME = null, BUSY = {};
-let pollT = null, pingT = null, lastPing = 0, wakeLock = null, shareOn = lsGet('pdr_share') !== '0';
+let pollT = null, pingT = null, todayT = null, lastPing = 0, wakeLock = null, shareOn = lsGet('pdr_share') !== '0';
 
 /* ---------- เข้าสู่ระบบ ---------- */
 function showLogin(msg){
@@ -252,11 +252,11 @@ async function doLogin(){
     showLogin(e.message === 'Failed to fetch' ? 'เชื่อมต่ออินเทอร์เน็ตไม่ได้' : e.message); $('lgPhone').value = phone;
   } finally { b.disabled = false; b.textContent = 'เข้าสู่ระบบ'; }
 }
-function logout(){ if(!confirm('ออกจากระบบใช่ไหม?')) return; lsDel('pdr_cred'); CR = null; DATA = { fresh:[], skipped:[], active:[], done:[], today:{count:0,fee:0} }; SEEN = null; SIG = ''; showLogin(); $('lgPin').value=''; }
+function logout(){ if(!confirm('ออกจากระบบใช่ไหม?')) return; lsDel('pdr_cred'); CR = null; DATA = { fresh:[], skipped:[], active:[], done:[], today:{count:0,fee:0} }; SEEN = null; SIG = ''; INC_CACHE = {}; ADM_TODAY = null; showLogin(); $('lgPin').value=''; }
 
 function enterApp(){
   $('login').classList.add('hide'); $('app').classList.remove('hide'); $('nav').classList.remove('hide');
-  startGeo(); refresh(false); startLoops(); keepAwake();
+  startGeo(); refresh(false); loadToday(); startLoops(); keepAwake();
 }
 
 /* ---------- ดึงงาน ---------- */
@@ -285,8 +285,9 @@ function startLoops(){
   stopLoops();
   pollT = setInterval(() => { if(!document.hidden && $('proofOv').classList.contains('hide')) refresh(true); }, POLL_MS);
   pingT = setInterval(ping, PING_MS);
+  clearInterval(todayT); todayT = setInterval(() => { if(!document.hidden) loadToday(); }, 300000);
 }
-function stopLoops(){ clearInterval(pollT); clearInterval(pingT); }
+function stopLoops(){ clearInterval(pollT); clearInterval(pingT); clearInterval(todayT); ADM_TODAY = null; }
 document.addEventListener('visibilitychange', () => { if(!document.hidden && CR){ refresh(true); keepAwake(); } });
 async function keepAwake(){ try { if('wakeLock' in navigator && !document.hidden) wakeLock = await navigator.wakeLock.request('screen'); } catch(e){} }
 
@@ -316,12 +317,16 @@ function updateDistances(){
 function findJob(id){ return DATA.fresh.concat(DATA.skipped || [], DATA.active, DATA.done).find(j => j.orderId === id); }
 
 /* ---------- วาดหน้าจอ ---------- */
-function goPage(p){ PAGE = p; ['jobs','income','me'].forEach(x => $('n-'+x).classList.toggle('on', x === p)); render(); window.scrollTo(0,0); }
+function goPage(p){ PAGE = p; ['jobs','income','me'].forEach(x => $('n-'+x).classList.toggle('on', x === p)); render(); window.scrollTo(0,0); if(p === 'income') loadIncome(false); }
 function setTab(t){ TAB = t; render(); }
 let minis = [];
+function renderHeader(){
+  const t = ADM_TODAY || DATA.today;
+  $('sCount').textContent = t.count + ' งาน';
+  $('sFee').textContent = '฿ ' + fmt(t.fee);
+}
 function render(){
-  $('sCount').textContent = DATA.today.count + ' งาน';
-  $('sFee').textContent = '฿ ' + fmt(DATA.today.fee);
+  renderHeader();
   updateShareBadge();
   minis.forEach(m => { try { m.remove(); } catch(e){} }); minis = [];
   const el = $('page');
@@ -407,15 +412,74 @@ function doneCard(j){
     '<div class="money"><div class="m"><span>ค่าส่งที่ได้</span><b>฿' + fmt(j.riderFee) + '</b></div><div class="m"><span>โอนคืนรวม</span><b>฿' + fmt(j.payout) + '</b></div></div></div>';
 }
 
+/* ---------- รายได้: ดึงจากแอปแอดมิน (ชีตเดียวกับที่แอดมินใช้โอนเงิน) สูตรเดียวกับหน้าสรุปของแอดมิน ---------- */
+const pad2 = n => String(n).padStart(2, '0');
+const ymd = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+const todayStr = () => ymd(new Date());
+function addDays(s, n){ const [y, m, d] = s.split('-').map(Number); return ymd(new Date(y, m - 1, d + n)); }
+function rangeOf(r){ const t = todayStr();
+  if(r === 'today') return [t, t]; if(r === 'yest'){ const y = addDays(t, -1); return [y, y]; }
+  if(r === '7d') return [addDays(t, -6), t]; if(r === 'month') return [t.slice(0, 8) + '01', t]; return ['', '']; }
+const RANGES = [['today','วันนี้'],['yest','เมื่อวาน'],['7d','7 วัน'],['month','เดือนนี้'],['all','ทั้งหมด']];
+let INC = { range: 'today', loading: false, err: '' }, INC_CACHE = {}, ADM_TODAY = null;
+const netOf = o => Number(o.goods) + Number(o.ship) - Number(o.admin) - Number(o.sys);
+function sumRows(rows){
+  const r = { n: 0, t: 0, g: 0, sh: 0, a: 0, s: 0, p: 0 };
+  rows.forEach(o => { r.n++; r.t += netOf(o); r.g += Number(o.goods); r.sh += Number(o.ship); r.a += Number(o.admin); r.s += Number(o.sys); if(!o.rPaid) r.p += netOf(o); });
+  r.profit = r.sh - r.a - r.s;                       // กำไรไรเดอร์ = ค่าส่ง − ค่าแอดมิน − ค่าระบบ (เหมือนหน้าสรุปของแอดมิน)
+  r.avg = r.n ? Math.round(r.profit / r.n * 100) / 100 : 0;
+  return r;
+}
+async function fetchRange(range, force){
+  const c = INC_CACHE[range];
+  if(!force && c && Date.now() - c.ts < 60000) return c.rows;
+  const [from, to] = rangeOf(range);
+  const d = await call('riderGetSummary', { from, to });
+  const rows = (d.orders || []).filter(o => o.st !== 'cancel');
+  INC_CACHE[range] = { ts: Date.now(), rows };
+  return rows;
+}
+async function loadIncome(force){
+  if(!CR) return;
+  INC.loading = !INC_CACHE[INC.range] || force; INC.err = ''; if(PAGE === 'income') render();
+  try { await fetchRange(INC.range, force); }
+  catch(e){ if(isAuthErr(e)){ showLogin('กรุณาเข้าสู่ระบบอีกครั้ง'); return; } INC.err = e.message === 'Failed to fetch' ? 'เชื่อมต่ออินเทอร์เน็ตไม่ได้' : e.message; }
+  INC.loading = false; if(PAGE === 'income') render();
+}
+async function loadToday(){ // ตัวเลขหัวหน้าจอ ใช้ข้อมูลแอดมินเพื่อให้ตรงกับยอดโอน
+  if(!CR) return;
+  try { const rows = await fetchRange('today', true); const r = sumRows(rows); ADM_TODAY = { count: r.n, fee: r.profit }; renderHeader(); } catch(e){}
+}
+function setRange(r){ INC.range = r; loadIncome(false); }
 function incomeHtml(){
-  const pend = DATA.done.filter(j => j.payoutStatus !== 'paid');
-  const sumPend = pend.reduce((s, j) => s + j.payout, 0);
-  return '<div class="list"><div class="panel"><h3>💰 สรุปวันนี้</h3>' +
-    '<div class="kv"><span>ส่งสำเร็จ</span><b>' + DATA.today.count + ' งาน</b></div>' +
-    '<div class="kv"><span>ค่าส่งที่ได้ (หลังหักค่าระบบ)</span><b>฿' + fmt(DATA.today.fee) + '</b></div>' +
-    '<div class="kv"><span>รอแอดมินโอนคืน (จาก 15 งานล่าสุด)</span><b style="color:#8a5a00">฿' + fmt(sumPend) + '</b></div></div>' +
-    '<div style="margin:14px 4px 0;font-weight:800">งานที่ส่งสำเร็จล่าสุด</div>' +
-    (DATA.done.length ? DATA.done.map(doneCard).join('') : '<div class="empty">ยังไม่มีงานที่เสร็จ</div>') + '</div>';
+  const chips = '<div class="tabs" style="padding:14px 0 4px;flex-wrap:wrap">' + RANGES.map(x =>
+    '<div class="tab ' + (INC.range === x[0] ? 'on' : '') + '" style="flex:1 1 30%;padding:10px 2px;font-size:16px" onclick="setRange(\'' + x[0] + '\')">' + x[1] + '</div>').join('') + '</div>';
+  const c = INC_CACHE[INC.range];
+  let body = '';
+  if(INC.err) body += '<div class="err" style="margin-top:12px">❌ ' + esc(INC.err) + ' <a href="#" onclick="loadIncome(true);return false" style="color:inherit;font-weight:800">ลองใหม่</a></div>';
+  if(INC.loading && !c) body += '<div class="empty"><span class="big">⏳</span>กำลังดึงข้อมูลจากแอดมิน...</div>';
+  else if(c){
+    const rows = c.rows.slice().sort((x, y) => (y.date + y.time).localeCompare(x.date + x.time));
+    const r = sumRows(rows);
+    const [f, t] = rangeOf(INC.range);
+    const note = INC.range === 'all' ? 'ข้อมูลทั้งหมด' : (f === t ? 'วันที่ ' + f : f + ' ถึง ' + t);
+    if(!r.n) body += '<div class="empty"><span class="big">📭</span>ไม่พบงานของคุณในช่วงนี้<br><small>(ชื่อไรเดอร์ในแอพแอดมินต้องตรงกับชื่อของคุณ)</small></div>';
+    else {
+      body += '<div class="panel"><h3>🏍️ สรุปรายได้ · ' + r.n + ' งาน</h3><div class="line mu" style="margin:-4px 0 8px">' + esc(note) + ' · ข้อมูลจากแอปแอดมิน</div>' +
+        '<div class="kv"><span>ยอดโอนให้ไรเดอร์รวม</span><b>' + fmt(r.t) + ' ฿</b></div>' +
+        '<div class="kv" style="color:var(--mut)"><span>└ คืนค่าสินค้าที่สำรองจ่าย</span><span>' + fmt(r.g) + ' ฿</span></div>' +
+        '<div class="kv"><span>ค่าส่ง</span><span>' + fmt(r.sh) + ' ฿</span></div>' +
+        '<div class="kv" style="color:#D3556F"><span>หักค่าแอดมิน</span><span>− ' + fmt(r.a) + ' ฿</span></div>' +
+        '<div class="kv" style="color:#D3556F"><span>หักค่าระบบ</span><span>− ' + fmt(r.s) + ' ฿</span></div>' +
+        '<div class="earn" style="margin-top:10px;text-align:left;display:flex;justify-content:space-between;align-items:center"><span style="font-weight:800;color:var(--g7)">💰 กำไรไรเดอร์<br><small style="font-weight:600;color:var(--mut)">เฉลี่ย ' + r.avg + ' ฿/งาน</small></span><b style="color:' + (r.profit >= 0 ? '#2C7A5B' : '#D3556F') + '">' + fmt(r.profit) + ' ฿</b></div>' +
+        (r.p > 0 ? '<div class="line mu" style="margin-top:8px;color:var(--warnt)">⏳ ยังค้างโอน ' + fmt(r.p) + ' ฿</div>' : '<div class="line mu" style="margin-top:8px;color:var(--g7)">✅ โอนครบแล้ว</div>') + '</div>' +
+        '<div style="margin:16px 4px 0;font-weight:800">งานในช่วงนี้</div>' + rows.map(o =>
+          '<div class="card"><div class="no"><span>#' + esc(o.no) + ' · ' + esc(o.date) + (o.time ? ' ' + esc(o.time) : '') + '</span><span class="paidtag ' + (o.rPaid ? 'p' : 'w') + '">' + (o.rPaid ? '💸 โอนแล้ว' : '⏳ รอโอน') + '</span></div>' +
+          '<div class="shop" style="font-size:22px">🏪 ' + esc(o.shop) + '</div>' +
+          '<div class="money"><div class="m"><span>ค่าส่งสุทธิ</span><b>฿' + fmt(Number(o.ship) - Number(o.admin) - Number(o.sys)) + '</b></div><div class="m"><span>โอนคืนรวม</span><b>฿' + fmt(netOf(o)) + '</b></div></div></div>').join('');
+    }
+  }
+  return '<div class="list">' + chips + body + '<button class="btn w" onclick="loadIncome(true)">🔄 โหลดข้อมูลใหม่</button></div>';
 }
 
 let INSTALL_EVT = null;
@@ -571,8 +635,8 @@ async function submitProof(){
   const oid = PROOF.oid;
   try {
     const r = await call('riderCompleteJob', { orderId: oid, base64: PROOF.data });
-    closeProof(); toast('🎉 ส่งสำเร็จ! โอนคืนรวม ฿' + fmt(r.payout || 0)); TAB = 'done';
-    await refresh(false);
+    closeProof(); toast('🎉 ส่งสำเร็จ! โอนคืนรวม ฿' + fmt(r.payout || 0)); TAB = 'done'; INC_CACHE = {};
+    await refresh(false); setTimeout(loadToday, 4000); // รอให้ระบบส่งงานเข้าแอปแอดมินก่อนค่อยอัปเดตยอด
   } catch(e){ toast('❌ ' + e.message); b.disabled = false; }
   b.textContent = '✅ ยืนยัน ส่งสำเร็จ';
 }
