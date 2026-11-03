@@ -108,6 +108,9 @@ button{font-family:inherit}
 .panel{background:#fff;border-radius:20px;border:2px solid var(--g2);padding:14px;margin-top:12px}
 .panel h3{margin:0 0 8px;font-size:19px;color:var(--g7)}
 .kv{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--g2);font-size:18px}.kv:last-child{border:0}
+.card.pay-p{background:#effaf3;border-color:#9fd9b4;border-left:10px solid #1b9a4a}
+.card.pay-w{background:#fff7e0;border-color:#f2cf6b;border-left:10px solid #f0a500}
+.paidtag.p{font-size:15px!important;background:#1b9a4a!important;color:#fff!important}.paidtag.w{font-size:15px!important;background:#f0a500!important;color:#3a2a00!important}
 .paidtag{font-size:13px;font-weight:700;border-radius:8px;padding:2px 8px}.paidtag.p{background:#e3f6ea;color:#0F6B3A}.paidtag.w{background:var(--warn);color:var(--warnt)}
 
 .install-bar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:10px;background:#fff;border-bottom:2px solid var(--g3);padding:calc(env(safe-area-inset-top) + 8px) 12px 8px;max-width:520px;margin:0 auto}
@@ -421,7 +424,7 @@ function activeCard(j){
 }
 
 function doneCard(j){
-  return '<div class="card"><div class="no"><span>#' + esc(j.orderId) + (j.doneDay ? ' · ' + esc(j.doneDay) + ' ' + esc(j.doneTime) : '') + '</span>' +
+  return '<div class="card ' + (j.payoutStatus === 'paid' ? 'pay-p' : 'pay-w') + '"><div class="no"><span>#' + esc(j.orderId) + (j.doneDay ? ' · ' + esc(j.doneDay) + ' ' + esc(j.doneTime) : '') + '</span>' +
     '<span class="paidtag ' + (j.payoutStatus === 'paid' ? 'p' : 'w') + '">' + (j.payoutStatus === 'paid' ? '💸 โอนคืนแล้ว' : '⏳ รอโอนคืน') + '</span></div>' +
     '<div class="shop" style="font-size:22px">🏪 ' + esc(j.shop) + '</div><div class="line mu">👤 ' + esc(j.customerName) + '</div>' +
     '<div class="money"><div class="m"><span>ค่าส่งที่ได้</span><b>฿' + fmt(j.riderFee) + '</b></div><div class="m"><span>โอนคืนรวม</span><b>฿' + fmt(j.payout) + '</b></div></div></div>';
@@ -489,7 +492,7 @@ function incomeHtml(){
         '<div class="earn" style="margin-top:10px;text-align:left;display:flex;justify-content:space-between;align-items:center"><span style="font-weight:800;color:var(--g7)">💰 กำไรไรเดอร์<br><small style="font-weight:600;color:var(--mut)">เฉลี่ย ' + r.avg + ' ฿/งาน</small></span><b style="color:' + (r.profit >= 0 ? '#2C7A5B' : '#D3556F') + '">' + fmt(r.profit) + ' ฿</b></div>' +
         (r.p > 0 ? '<div class="line mu" style="margin-top:8px;color:var(--warnt)">⏳ ยังค้างโอน ' + fmt(r.p) + ' ฿</div>' : '<div class="line mu" style="margin-top:8px;color:var(--g7)">✅ โอนครบแล้ว</div>') + '</div>' +
         '<div style="margin:16px 4px 0;font-weight:800">งานในช่วงนี้</div>' + rows.map(o =>
-          '<div class="card"><div class="no"><span>#' + esc(o.no) + ' · ' + esc(o.date) + (o.time ? ' ' + esc(o.time) : '') + '</span><span class="paidtag ' + (o.rPaid ? 'p' : 'w') + '">' + (o.rPaid ? '💸 โอนแล้ว' : '⏳ รอโอน') + '</span></div>' +
+          '<div class="card ' + (o.rPaid ? 'pay-p' : 'pay-w') + '"><div class="no"><span>#' + esc(o.no) + ' · ' + esc(o.date) + (o.time ? ' ' + esc(o.time) : '') + '</span><span class="paidtag ' + (o.rPaid ? 'p' : 'w') + '">' + (o.rPaid ? '💸 โอนแล้ว' : '⏳ รอโอน') + '</span></div>' +
           '<div class="shop" style="font-size:22px">🏪 ' + esc(o.shop) + '</div>' +
           '<div class="money"><div class="m"><span>ค่าส่งสุทธิ</span><b>฿' + fmt(Number(o.ship) - Number(o.admin) - Number(o.sys)) + '</b></div><div class="m"><span>โอนคืนรวม</span><b>฿' + fmt(netOf(o)) + '</b></div></div></div>').join('');
     }
