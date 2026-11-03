@@ -1635,7 +1635,8 @@ function showMerchantPage(){
 
       <br><br>
 
-      <button onclick="getShopLocation()">ปักหมุดร้าน</button>
+      <button onclick="getShopLocation()">📍 ปักหมุดร้าน (ใช้ GPS)</button>
+      <button onclick="pickShopOnMap()" style="background:#fff;color:#d6336c;border:1.5px solid #d6336c;margin-top:8px;">🗺️ เลือกตำแหน่งร้านบนแผนที่</button>
       <p id="shopLocationText">ยังไม่ได้ปักหมุดร้าน</p>
 
       <button id="submitShopRegisterBtn" class="form-full" onclick="submitShopRegister()">ส่งใบสมัครร้านค้า</button>
@@ -1920,16 +1921,110 @@ function saveEditedProduct(rowIndex){
   }
 }
 
-function getShopLocation(){
-  navigator.geolocation.getCurrentPosition(
-    function(position){
-      registerShopLat = position.coords.latitude;
-      registerShopLng = position.coords.longitude;
-      document.getElementById("shopLocationText").innerHTML =
-        "ปักหมุดร้านแล้ว ✅<br>Lat: " + registerShopLat + "<br>Lng: " + registerShopLng;
-    },
-    function(){ alert("กรุณาเปิด GPS ก่อน"); }
-  );
+
+// ============================================================
+// 🗺️ เลือกตำแหน่งบนแผนที่ (ใช้ตอนสมัครร้าน/สมัครสมาชิก — GPS ไม่ติดหรืออยู่คนละที่กับร้าน ก็เลือกเองได้)
+// ภาพดาวเทียม + ชื่อสถานที่ (สลับเป็นแผนที่ถนนได้) · เลื่อนแผนที่ให้หมุดกลางจออยู่ตรงจุด แล้วกดยืนยัน
+// ============================================================
+let gpMap_ = null, gpCb_ = null, gpStart_ = null, gpMoved_ = false;
+function pickOnMap_(opts){
+  // opts: { why, title, start:[lat,lng], onPick:function(lat,lng) }
+  if(typeof L === "undefined"){
+    alert((opts.why ? opts.why + "\n\n" : "") + "โหลดแผนที่ไม่ได้ (เช็คอินเทอร์เน็ต) กรุณาลองใหม่อีกครั้ง");
+    return;
+  }
+  gpCb_ = opts.onPick;
+  let ov = document.getElementById("gpOverlay");
+  if(!ov){
+    ov = document.createElement("div");
+    ov.id = "gpOverlay";
+    ov.style.cssText = "position:fixed;inset:0;z-index:10000;background:#fff;display:flex;flex-direction:column;";
+    ov.innerHTML =
+      '<div id="gpWhy" style="padding:10px 12px;background:#fff3cd;font-size:14px;"></div>' +
+      '<div id="gpTitle" style="padding:8px 12px 2px;font-weight:700;font-size:16px;"></div>' +
+      '<div id="gpInfo" style="padding:2px 12px 6px;font-size:14px;color:#555;">👆 เลื่อนแผนที่ให้ <b>หมุด 📍 กลางจอ</b> อยู่ตรงจุดที่ต้องการ แล้วกดยืนยัน</div>' +
+      '<div style="position:relative;flex:1;"><div id="gpBox" style="position:absolute;inset:0;"></div>' +
+      '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);font-size:36px;z-index:1000;pointer-events:none;">📍</div></div>' +
+      '<div style="display:flex;gap:8px;padding:10px;">' +
+      '<button type="button" id="gpCancel" style="flex:1;padding:12px;border:0;border-radius:10px;background:#ddd;">ยกเลิก</button>' +
+      '<button type="button" id="gpGps" style="flex:1.3;padding:12px;border:0;border-radius:10px;background:#e8f0ff;color:#1a56c4;">📡 ตำแหน่งฉัน</button>' +
+      '<button type="button" id="gpOk" style="flex:2;padding:12px;border:0;border-radius:10px;background:#d6336c;color:#fff;font-weight:bold;">✅ ยืนยันตำแหน่งนี้</button></div>';
+    document.body.appendChild(ov);
+    document.getElementById("gpCancel").onclick = function(){ ov.style.display = "none"; };
+    document.getElementById("gpGps").onclick = function(){
+      if(!navigator.geolocation){ alert("เครื่องนี้ใช้ GPS ไม่ได้ ให้เลื่อนแผนที่เลือกเองได้เลย"); return; }
+      const b = document.getElementById("gpGps"); const t0 = b.textContent; b.textContent = "⏳ ค้นหา...";
+      navigator.geolocation.getCurrentPosition(function(p){
+        b.textContent = t0; gpMoved_ = true; document.getElementById("gpOk").style.opacity = "1";
+        gpMap_.setView([p.coords.latitude, p.coords.longitude], 17);
+      }, function(){ b.textContent = t0; alert("หาตำแหน่งไม่เจอ ให้เลื่อนแผนที่เลือกเองได้เลยครับ"); },
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
+    };
+    document.getElementById("gpOk").onclick = function(){
+      if(!gpMoved_){ alert("กรุณาเลื่อนแผนที่ให้หมุด 📍 อยู่ตรงจุดที่ต้องการก่อน แล้วค่อยกดยืนยัน"); return; }
+      const c = gpMap_.getCenter(); ov.style.display = "none";
+      if(gpCb_){ gpCb_(c.lat, c.lng); }
+    };
+  }
+  document.getElementById("gpWhy").style.display = opts.why ? "block" : "none";
+  document.getElementById("gpWhy").textContent = opts.why ? "⚠️ " + opts.why + " — เลือกตำแหน่งบนแผนที่แทนได้เลย" : "";
+  document.getElementById("gpTitle").textContent = opts.title || "เลือกตำแหน่งบนแผนที่";
+  ov.style.display = "flex";
+  gpStart_ = opts.start || [shopLat, shopLng];
+  gpMoved_ = false;
+  document.getElementById("gpOk").style.opacity = "0.45";
+  if(!gpMap_){
+    gpMap_ = L.map("gpBox").setView(gpStart_, 16);
+    const esri = "https://server.arcgisonline.com/ArcGIS/rest/services/";
+    const sat = L.layerGroup([
+      L.tileLayer(esri + "World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 18, attribution: "Esri" }),
+      L.tileLayer(esri + "Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, maxNativeZoom: 18 })
+    ]);
+    const street = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" });
+    sat.addTo(gpMap_);
+    L.control.layers({ "🛰️ ดาวเทียม": sat, "🗺️ ถนน": street }, null, { position: "topright", collapsed: false }).addTo(gpMap_);
+    gpMap_.on("moveend", function(){
+      const c = gpMap_.getCenter(), s0 = gpStart_;
+      if(s0 && calculateDistance(s0[0], s0[1], c.lat, c.lng) > 0.02){
+        gpMoved_ = true; document.getElementById("gpOk").style.opacity = "1";
+      }
+    });
+  } else {
+    gpMap_.setView(gpStart_, 16);
+  }
+  setTimeout(function(){ gpMap_.invalidateSize(); }, 150);
+}
+
+// ปักหมุดแบบทนทาน: ลอง GPS แม่นยำ → ลองซ้ำแบบประหยัด → ไม่ได้/ไม่ยอมให้สิทธิ์ ก็เปิดแผนที่ให้เลือกเอง
+function gpsOrMap_(done, mapTitle){
+  function toMap(why){ pickOnMap_({ why: why, title: mapTitle, onPick: function(la, ln){ done(la, ln, "เลือกบนแผนที่"); } }); }
+  if(!navigator.geolocation){ toMap("อุปกรณ์นี้ไม่รองรับ GPS"); return; }
+  function ok(p){ done(p.coords.latitude, p.coords.longitude, "GPS"); }
+  function fail(err){
+    let why = "หาตำแหน่งไม่สำเร็จ";
+    if(err && err.code === 1) why = "ยังไม่ได้อนุญาตตำแหน่ง (หรือปิด GPS ในมือถือ)";
+    else if(err && err.code === 2) why = "สัญญาณ GPS อ่อน หาตำแหน่งไม่เจอ";
+    else if(err && err.code === 3) why = "หาตำแหน่งนานเกินไป";
+    toMap(why);
+  }
+  navigator.geolocation.getCurrentPosition(ok, function(err){
+    if(err && err.code === 1){ fail(err); return; }
+    navigator.geolocation.getCurrentPosition(ok, fail, { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
+  }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+}
+
+function setShopPin_(la, ln, how){
+  registerShopLat = la;
+  registerShopLng = ln;
+  document.getElementById("shopLocationText").innerHTML =
+    "ปักหมุดร้านแล้ว ✅ (" + how + ")<br>Lat: " + Number(la).toFixed(6) + "<br>Lng: " + Number(ln).toFixed(6);
+}
+function getShopLocation(){      // ปุ่ม "ปักหมุดร้าน (GPS)" — ถ้า GPS ไม่ติดจะเปิดแผนที่ให้อัตโนมัติ
+  gpsOrMap_(setShopPin_, "เลือกตำแหน่งร้าน");
+}
+function pickShopOnMap(){        // ปุ่ม "เลือกบนแผนที่" — เลือกเองตรงๆ (เช่น อยู่คนละที่กับร้าน)
+  pickOnMap_({ title: "เลือกตำแหน่งร้าน", start: (registerShopLat !== "" ? [Number(registerShopLat), Number(registerShopLng)] : null),
+               onPick: function(la, ln){ setShopPin_(la, ln, "เลือกบนแผนที่"); } });
 }
 
 let isSubmittingShopRegister = false; // 🆕 กันกดปุ่ม "ส่งใบสมัครร้านค้า" ซ้ำรัวๆ ตอนรอ server ตอบ (เน็ตช้า/รอบีบอัดโลโก้)
@@ -2112,6 +2207,7 @@ function renderMemberForms(tab){
       <input id="registerAddress" placeholder="ที่อยู่ เช่น 99/1 ม.2 ต.พระแสง"><br><br>
       <input id="registerPin" type="text" placeholder="ตั้ง PIN 4 หลัก"><br><br>
       <button onclick="getMemberRegisterLocation()" style="background:#7c3aed;">📍 ปักหมุดที่อยู่ (แนะนำ ไม่ต้องปักหมุดใหม่ทุกครั้งที่สั่ง)</button>
+      <button onclick="pickMemberOnMap()" style="background:#fff;color:#7c3aed;border:1.5px solid #7c3aed;margin-top:8px;">🗺️ เลือกตำแหน่งบนแผนที่</button>
       <p id="memberRegisterLocationText" style="font-size:13px;color:#666;text-align:center;margin:8px 0 0;">ยังไม่ได้ปักหมุด (ข้ามได้ ไปปักหมุดตอนสั่งทีหลังก็ได้)</p>
       <br>
       <button onclick="memberRegister()" style="background:#2ecc71;">สมัครสมาชิก</button>
@@ -2122,15 +2218,17 @@ function renderMemberForms(tab){
 let regMemberLat = "";
 let regMemberLng = "";
 
+function setMemberRegPin_(la, ln, how){
+  regMemberLat = la;
+  regMemberLng = ln;
+  document.getElementById("memberRegisterLocationText").innerHTML = "ปักหมุดแล้ว ✅ (" + how + ")";
+}
 function getMemberRegisterLocation(){
-  navigator.geolocation.getCurrentPosition(
-    function(position){
-      regMemberLat = position.coords.latitude;
-      regMemberLng = position.coords.longitude;
-      document.getElementById("memberRegisterLocationText").innerHTML = "ปักหมุดแล้ว ✅";
-    },
-    function(){ alert("กรุณาเปิดสิทธิ์ตำแหน่ง GPS ก่อน"); }
-  );
+  gpsOrMap_(setMemberRegPin_, "เลือกตำแหน่งที่อยู่ของคุณ");
+}
+function pickMemberOnMap(){
+  pickOnMap_({ title: "เลือกตำแหน่งที่อยู่ของคุณ", start: (regMemberLat !== "" ? [Number(regMemberLat), Number(regMemberLng)] : null),
+               onPick: function(la, ln){ setMemberRegPin_(la, ln, "เลือกบนแผนที่"); } });
 }
 
 async function memberLogin(){
