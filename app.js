@@ -1635,8 +1635,13 @@ function showMerchantPage(){
 
       <br><br>
 
+      <div style="background:#fff8e1;border:1.5px solid #f5c542;border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.6;margin-bottom:8px;">
+        <b>📌 วิธีปักหมุดร้าน (ทำแค่อย่างใดอย่างหนึ่ง)</b><br>
+        <b>ข้อ 1:</b> กดปุ่ม <b>"📍 ปักหมุดร้าน (ใช้ GPS)"</b> ถ้าขึ้น <b>✅ ปักหมุดร้านแล้ว</b> = เสร็จแล้ว <u>ไม่ต้องทำข้อ 2</u><br>
+        <b>ข้อ 2:</b> ถ้าข้อ 1 ไม่ได้ หรืออยู่คนละที่กับร้าน ค่อยกดปุ่ม <b>"🗺️ เลือกบนแผนที่"</b>
+      </div>
       <button onclick="getShopLocation()">📍 ปักหมุดร้าน (ใช้ GPS)</button>
-      <button onclick="pickShopOnMap()" style="background:#fff;color:#d6336c;border:1.5px solid #d6336c;margin-top:8px;">🗺️ เลือกตำแหน่งร้านบนแผนที่</button>
+      <button onclick="pickShopOnMap()" style="background:#fff;color:#d6336c;border:1.5px solid #d6336c;margin-top:8px;">🗺️ GPS ไม่ติด? เลือกตำแหน่งร้านบนแผนที่</button>
       <p id="shopLocationText">ยังไม่ได้ปักหมุดร้าน</p>
 
       <button id="submitShopRegisterBtn" class="form-full" onclick="submitShopRegister()">ส่งใบสมัครร้านค้า</button>
@@ -2017,12 +2022,13 @@ function setShopPin_(la, ln, how){
   registerShopLat = la;
   registerShopLng = ln;
   document.getElementById("shopLocationText").innerHTML =
-    "ปักหมุดร้านแล้ว ✅ (" + how + ")<br>Lat: " + Number(la).toFixed(6) + "<br>Lng: " + Number(ln).toFixed(6);
+    "<b style='color:#1b8a3a'>✅ ปักหมุดร้านแล้ว — เสร็จแล้ว ไม่ต้องปักเพิ่ม</b> (" + how + ")<br>Lat: " + Number(la).toFixed(6) + "<br>Lng: " + Number(ln).toFixed(6);
 }
 function getShopLocation(){      // ปุ่ม "ปักหมุดร้าน (GPS)" — ถ้า GPS ไม่ติดจะเปิดแผนที่ให้อัตโนมัติ
   gpsOrMap_(setShopPin_, "เลือกตำแหน่งร้าน");
 }
 function pickShopOnMap(){        // ปุ่ม "เลือกบนแผนที่" — เลือกเองตรงๆ (เช่น อยู่คนละที่กับร้าน)
+  if(registerShopLat !== "" && !confirm("ปักหมุดร้านไว้แล้ว ✅\nถ้าตำแหน่งถูกต้องแล้ว ไม่ต้องเลือกซ้ำ\n\nต้องการเลือกตำแหน่งใหม่บนแผนที่ใช่ไหม?")){ return; }
   pickOnMap_({ title: "เลือกตำแหน่งร้าน", start: (registerShopLat !== "" ? [Number(registerShopLat), Number(registerShopLng)] : null),
                onPick: function(la, ln){ setShopPin_(la, ln, "เลือกบนแผนที่"); } });
 }
@@ -2206,8 +2212,13 @@ function renderMemberForms(tab){
       <input id="registerPhone" placeholder="เบอร์โทร"><br><br>
       <input id="registerAddress" placeholder="ที่อยู่ เช่น 99/1 ม.2 ต.พระแสง"><br><br>
       <input id="registerPin" type="text" placeholder="ตั้ง PIN 4 หลัก"><br><br>
+      <div style="background:#f3edff;border:1.5px solid #c9b3f5;border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.6;margin-bottom:8px;text-align:left;">
+        <b>📌 วิธีปักหมุด (ทำแค่อย่างใดอย่างหนึ่ง)</b><br>
+        <b>ข้อ 1:</b> กดปุ่ม <b>"📍 ปักหมุดที่อยู่"</b> ถ้าขึ้น <b>✅ ปักหมุดแล้ว</b> = เสร็จแล้ว <u>ไม่ต้องทำข้อ 2</u><br>
+        <b>ข้อ 2:</b> ถ้าข้อ 1 ไม่ได้ ค่อยกดปุ่ม <b>"🗺️ เลือกบนแผนที่"</b>
+      </div>
       <button onclick="getMemberRegisterLocation()" style="background:#7c3aed;">📍 ปักหมุดที่อยู่ (แนะนำ ไม่ต้องปักหมุดใหม่ทุกครั้งที่สั่ง)</button>
-      <button onclick="pickMemberOnMap()" style="background:#fff;color:#7c3aed;border:1.5px solid #7c3aed;margin-top:8px;">🗺️ เลือกตำแหน่งบนแผนที่</button>
+      <button onclick="pickMemberOnMap()" style="background:#fff;color:#7c3aed;border:1.5px solid #7c3aed;margin-top:8px;">🗺️ GPS ไม่ติด? เลือกตำแหน่งบนแผนที่</button>
       <p id="memberRegisterLocationText" style="font-size:13px;color:#666;text-align:center;margin:8px 0 0;">ยังไม่ได้ปักหมุด (ข้ามได้ ไปปักหมุดตอนสั่งทีหลังก็ได้)</p>
       <br>
       <button onclick="memberRegister()" style="background:#2ecc71;">สมัครสมาชิก</button>
@@ -2221,12 +2232,13 @@ let regMemberLng = "";
 function setMemberRegPin_(la, ln, how){
   regMemberLat = la;
   regMemberLng = ln;
-  document.getElementById("memberRegisterLocationText").innerHTML = "ปักหมุดแล้ว ✅ (" + how + ")";
+  document.getElementById("memberRegisterLocationText").innerHTML = "<b style='color:#1b8a3a'>✅ ปักหมุดแล้ว — เสร็จแล้ว ไม่ต้องปักเพิ่ม</b> (" + how + ")";
 }
 function getMemberRegisterLocation(){
   gpsOrMap_(setMemberRegPin_, "เลือกตำแหน่งที่อยู่ของคุณ");
 }
 function pickMemberOnMap(){
+  if(regMemberLat !== "" && !confirm("ปักหมุดไว้แล้ว ✅\nถ้าตำแหน่งถูกต้องแล้ว ไม่ต้องเลือกซ้ำ\n\nต้องการเลือกตำแหน่งใหม่บนแผนที่ใช่ไหม?")){ return; }
   pickOnMap_({ title: "เลือกตำแหน่งที่อยู่ของคุณ", start: (regMemberLat !== "" ? [Number(regMemberLat), Number(regMemberLng)] : null),
                onPick: function(la, ln){ setMemberRegPin_(la, ln, "เลือกบนแผนที่"); } });
 }
