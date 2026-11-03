@@ -218,14 +218,29 @@ const isAuthErr = e => /เบอร์โทรหรือรหัส|ยั�
 /* ---------- เสียงเตือน/การสั่น ---------- */
 let AC = null;
 function unlockAudio(){ try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if(AC.state === 'suspended') AC.resume(); } catch(e){} }
-function beep(){
-  try { unlockAudio(); if(!AC) return;
-    [0, .25, .5].forEach(t => { const o=AC.createOscillator(), g=AC.createGain(); o.frequency.value = 880; o.connect(g); g.connect(AC.destination);
-      g.gain.setValueAtTime(.0001, AC.currentTime+t); g.gain.exponentialRampToValueAtTime(.35, AC.currentTime+t+.02); g.gain.exponentialRampToValueAtTime(.0001, AC.currentTime+t+.2);
-      o.start(AC.currentTime+t); o.stop(AC.currentTime+t+.22); });
-  } catch(e){}
-  try { if(navigator.vibrate) navigator.vibrate([300,150,300]); } catch(e){}
+/* เสียงเตือนงานใหม่: เลือกได้ในหน้า "ฉัน" (จำค่าไว้ในเครื่อง) */
+const SOUNDS = { beep: 'บี๊บสั้น (3 ครั้ง)', long: 'บี๊บยาว (5 ครั้ง)', bell: 'กระดิ่ง', siren: 'ไซเรนงานด่วน (ดังต่อเนื่อง)' };
+const VOLS = { 1: ['เบา', .18], 2: ['ปกติ', .4], 3: ['ดัง', .7], 4: ['ดังมาก', 1] };
+let SND = lsGet('pdr_sound'); if(!SOUNDS[SND]) SND = 'beep';
+let VOL = Number(lsGet('pdr_vol')); if(!VOLS[VOL]) VOL = 3;
+function tone(freq, t0, dur, peak, type){
+  const o = AC.createOscillator(), g = AC.createGain(); o.type = type || 'sine'; o.frequency.value = freq; o.connect(g); g.connect(AC.destination);
+  const t = AC.currentTime + t0;
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(.001, peak), t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.start(t); o.stop(t + dur + .02);
 }
+function playSound(id, vibrate){
+  try { unlockAudio(); if(!AC) return; const v = VOLS[VOL][1];
+    if(id === 'beep') [0, .25, .5].forEach(t => tone(880, t, .2, v * .9, 'square'));
+    else if(id === 'long') [0, .35, .7, 1.05, 1.4].forEach((t, i) => tone(i % 2 ? 1175 : 880, t, .3, v * .9, 'square'));
+    else if(id === 'bell') [0, .9, 1.8].forEach(t => { tone(1320, t, .9, v, 'sine'); tone(1980, t, .6, v * .5, 'sine'); tone(2640, t, .35, v * .25, 'sine'); });
+    else if(id === 'siren') for(let i = 0; i < 6; i++) tone(i % 2 ? 660 : 990, i * .4, .38, v * .9, 'sawtooth');
+  } catch(e){}
+  if(vibrate !== false){ try { if(navigator.vibrate) navigator.vibrate(id === 'siren' ? [500,150,500,150,500] : [300,150,300]); } catch(e){} }
+}
+function beep(){ playSound(SND); }
+function pickSound(id){ SND = id; lsSet('pdr_sound', id); playSound(id, false); render(); }
+function pickVol(n){ VOL = n; lsSet('pdr_vol', String(n)); playSound(SND, false); render(); }
 document.addEventListener('click', unlockAudio, { once:true });
 
 /* ---------- สถานะแอพ ---------- */
@@ -518,7 +533,12 @@ function meHtml(){
     '<div class="kv"><span>เบอร์โทร</span><b>' + esc(CR ? CR.phone : '') + '</b></div>' +
     '<div class="kv"><span>แชร์ตำแหน่งให้ลูกค้าเห็น (ตอนมีงาน)</span><b onclick="toggleShare()" style="cursor:pointer;color:var(--g5)">' + (shareOn ? '🟢 เปิด (แตะเพื่อปิด)' : '⚪ ปิด (แตะเพื่อเปิด)') + '</b></div>' +
     '<div class="kv"><span>ตำแหน่งของคุณ</span><b>' + (ME ? '✅ พบแล้ว' : '❌ ยังไม่ได้ (เปิด GPS/อนุญาต)') + '</b></div></div>' +
-    '<div class="panel">' + inst + '<button class="btn w" onclick="beep();toast(\'🔔 ทดสอบเสียงเตือน\')">🔔 ทดสอบเสียงเตือนงานใหม่</button></div>' +
+    '<div class="panel"><h3>🔔 เสียงเตือนงานใหม่</h3>' +
+    Object.keys(SOUNDS).map(k => '<div class="kv" style="cursor:pointer" onclick="pickSound(\'' + k + '\')"><span>' + (SND === k ? '🔘 ' : '⚪ ') + SOUNDS[k] + '</span><b style="color:var(--g5)">▶ ฟัง</b></div>').join('') +
+    '<div style="margin:12px 0 4px;font-weight:700">ความดัง</div><div class="tabs" style="padding:0">' +
+    Object.keys(VOLS).map(n => '<div class="tab ' + (VOL == n ? 'on' : '') + '" style="padding:9px 2px;font-size:15px" onclick="pickVol(' + n + ')">' + VOLS[n][0] + '</div>').join('') + '</div>' +
+    '<div class="line mu" style="margin-top:8px">เสียงดังเฉพาะตอนเปิดแอพค้างไว้บนหน้าจอ · ปรับความดังมือถือให้สุดด้วย</div></div>' +
+    '<div class="panel">' + inst + '</div>' +
     '<button class="btn skip" style="width:100%;margin-top:14px" onclick="logout()">ออกจากระบบ</button></div>';
 }
 function toggleShare(){ shareOn = !shareOn; lsSet('pdr_share', shareOn ? '1' : '0'); render(); }
