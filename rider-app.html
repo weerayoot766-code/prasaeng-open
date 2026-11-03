@@ -109,9 +109,22 @@ button{font-family:inherit}
 .panel h3{margin:0 0 8px;font-size:19px;color:var(--g7)}
 .kv{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--g2);font-size:18px}.kv:last-child{border:0}
 .paidtag{font-size:13px;font-weight:700;border-radius:8px;padding:2px 8px}.paidtag.p{background:#e3f6ea;color:#0F6B3A}.paidtag.w{background:var(--warn);color:var(--warnt)}
+
+.install-bar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:10px;background:#fff;border-bottom:2px solid var(--g3);padding:calc(env(safe-area-inset-top) + 8px) 12px 8px;max-width:520px;margin:0 auto}
+.install-bar .t{flex:1;font-weight:800;font-size:17px;line-height:1.25;color:var(--g7)}.install-bar .t small{display:block;font-weight:600;font-size:13px;color:var(--mut)}
+.install-go{border:0;background:var(--g5);color:#fff;font-weight:800;font-size:18px;border-radius:14px;padding:11px 16px;box-shadow:0 4px 0 var(--g7);cursor:pointer;white-space:nowrap}
+.install-x{border:0;background:transparent;font-size:24px;color:var(--mut);padding:4px 8px;cursor:pointer}
+.install-help{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:center;justify-content:center;padding:18px}
+.install-help-box{background:#fff;border-radius:22px;padding:20px;max-width:420px;width:100%;font-size:18px;line-height:1.6}
+.install-help-box h3{margin:0 0 8px;color:var(--g7);font-size:22px}.install-help-box ol{padding-left:22px;margin:8px 0}.install-help-box .ic{background:var(--g1);border-radius:8px;padding:1px 8px;font-weight:700}
 </style>
 </head>
 <body>
+<div id="installBar" class="install-bar hide">
+  <div class="t">📲 ติดตั้งแอพไรเดอร์<small>ไว้หน้าจอโฮม เปิดใช้ง่ายเหมือนแอพทั่วไป</small></div>
+  <button class="install-go" onclick="installApp()">ติดตั้ง</button>
+  <button class="install-x" onclick="dismissInstall()" aria-label="ปิด">✕</button>
+</div>
 
 <!-- ===== เข้าสู่ระบบ ===== -->
 <div id="login" class="hide">
@@ -167,6 +180,10 @@ button{font-family:inherit}
     <a class="btn" id="mpNav" target="_blank" rel="noopener" style="margin-top:6px">🧭 นำทางด้วย Google Maps</a></div>
 </div>
 
+<div id="installHelp" class="install-help" onclick="if(event.target===this)closeInstallHelp()">
+  <div class="install-help-box"><h3 id="installHelpTitle">ติดตั้งแอพ</h3><div id="installHelpBody"></div>
+    <button class="install-go" style="width:100%;margin-top:12px" onclick="closeInstallHelp()">เข้าใจแล้ว</button></div>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -402,15 +419,37 @@ function incomeHtml(){
 }
 
 let INSTALL_EVT = null;
-window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); INSTALL_EVT = e; if(PAGE === 'me') render(); });
+function isStandalone(){ try { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; } catch(e){ return false; } }
+function installEnv(){
+  const ua = navigator.userAgent || '';
+  const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const inApp = /Line\/|FBAN|FBAV|Instagram|MicroMessenger|Messenger/i.test(ua);
+  const safari = ios && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua) && !inApp;
+  return { ios, inApp, safari, android: /Android/i.test(ua) };
+}
+function installDismissed(){ const t = Number(lsGet('pdr_installDismissed') || 0); return t && (Date.now() - t) < 7 * 86400000; }
+function showInstallBar(){
+  const bar = $('installBar'); if(!bar || isStandalone() || installDismissed()) return;
+  const e = installEnv(); if(INSTALL_EVT || e.ios || e.inApp || e.android) bar.classList.remove('hide');
+}
+function dismissInstall(){ lsSet('pdr_installDismissed', String(Date.now())); $('installBar').classList.add('hide'); }
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); INSTALL_EVT = e; showInstallBar(); if(PAGE === 'me') render(); });
+window.addEventListener('appinstalled', () => { INSTALL_EVT = null; $('installBar').classList.add('hide'); if(PAGE === 'me') render(); });
+function helpOpen(title, html){ $('installHelpTitle').textContent = title; $('installHelpBody').innerHTML = html; $('installHelp').style.display = 'flex'; }
+function closeInstallHelp(){ $('installHelp').style.display = 'none'; }
+function installApp(){
+  const e = installEnv();
+  if(INSTALL_EVT){ INSTALL_EVT.prompt(); INSTALL_EVT.userChoice.then(() => { INSTALL_EVT = null; render(); }).catch(() => {}); return; }
+  if(e.inApp){ helpOpen('เปิดในเบราว์เซอร์ก่อนนะครับ', '<p>ตอนนี้เปิดอยู่ในแอพอื่น (เช่น LINE) ซึ่งติดตั้งไม่ได้</p><ol><li>กดปุ่ม <span class="ic">⋮</span> หรือ <span class="ic">⋯</span> มุมขวาบน</li><li>เลือก <b>เปิดในเบราว์เซอร์</b> (Chrome หรือ Safari)</li><li>แล้วกดปุ่ม <b>ติดตั้ง</b> อีกครั้ง</li></ol>'); return; }
+  if(e.ios){
+    if(!e.safari){ helpOpen('ใช้ Safari ติดตั้งนะครับ', '<p>บน iPhone ต้องเปิดหน้านี้ด้วย <b>Safari</b> เท่านั้น ถึงจะติดตั้งได้</p>'); return; }
+    helpOpen('ติดตั้งบน iPhone', '<ol><li>กดปุ่ม <span class="ic">แชร์ ⬆️</span> ที่แถบด้านล่างของ Safari</li><li>เลื่อนลงแล้วเลือก <b>เพิ่มไปยังหน้าจอโฮม</b></li><li>กด <b>เพิ่ม</b> มุมขวาบน</li></ol>'); return;
+  }
+  helpOpen('ติดตั้งบน Android', '<ol><li>กดปุ่ม <span class="ic">⋮</span> มุมขวาบนของ Chrome</li><li>เลือก <b>ติดตั้งแอป</b> หรือ <b>เพิ่มไปยังหน้าจอหลัก</b></li><li>กด <b>ติดตั้ง</b></li></ol>');
+}
+setTimeout(showInstallBar, 1200);
 function meHtml(){
-  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  let inst = '';
-  if(standalone) inst = '<div class="kv"><span>ติดตั้งแอพ</span><b>✅ ติดตั้งแล้ว</b></div>';
-  else if(INSTALL_EVT) inst = '<button class="btn w" onclick="installApp()">📲 ติดตั้งไว้หน้าจอโฮม</button>';
-  else if(ios) inst = '<div class="line mu">📲 ติดตั้ง: เปิดด้วย Safari → กดปุ่มแชร์ (สี่เหลี่ยมมีลูกศรขึ้น) → "เพิ่มลงในหน้าจอโฮม"</div>';
-  else inst = '<div class="line mu">📲 ติดตั้ง: เปิดเมนู ⋮ ของ Chrome → "ติดตั้งแอป" หรือ "เพิ่มลงในหน้าจอหลัก"</div>';
+  let inst = isStandalone() ? '<div class="kv"><span>ติดตั้งแอพ</span><b>✅ ติดตั้งแล้ว</b></div>' : '<button class="btn w" onclick="installApp()">📲 ติดตั้งแอพไว้หน้าจอโฮม</button>';
   return '<div class="list"><div class="panel"><h3>👤 ' + esc(DATA.rider ? DATA.rider.name : '') + '</h3>' +
     '<div class="kv"><span>เบอร์โทร</span><b>' + esc(CR ? CR.phone : '') + '</b></div>' +
     '<div class="kv"><span>แชร์ตำแหน่งให้ลูกค้าเห็น (ตอนมีงาน)</span><b onclick="toggleShare()" style="cursor:pointer;color:var(--g5)">' + (shareOn ? '🟢 เปิด (แตะเพื่อปิด)' : '⚪ ปิด (แตะเพื่อเปิด)') + '</b></div>' +
@@ -418,7 +457,6 @@ function meHtml(){
     '<div class="panel">' + inst + '<button class="btn w" onclick="beep();toast(\'🔔 ทดสอบเสียงเตือน\')">🔔 ทดสอบเสียงเตือนงานใหม่</button></div>' +
     '<button class="btn skip" style="width:100%;margin-top:14px" onclick="logout()">ออกจากระบบ</button></div>';
 }
-async function installApp(){ if(!INSTALL_EVT) return; INSTALL_EVT.prompt(); try { await INSTALL_EVT.userChoice; } catch(e){} INSTALL_EVT = null; render(); }
 function toggleShare(){ shareOn = !shareOn; lsSet('pdr_share', shareOn ? '1' : '0'); render(); }
 
 /* ---------- แผนที่ย่อในการ์ด / แผนที่เต็มจอ ---------- */
