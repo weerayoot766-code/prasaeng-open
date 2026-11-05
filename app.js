@@ -137,7 +137,7 @@ function openQtyModal(index){
   document.getElementById("itemNoteInput").value = ""; // 🆕 โน้ตถึงร้าน ล้างทุกครั้งที่เปิดเมนูใหม่
 
   // 🆕 เฉพาะหมวด "เครื่องดื่ม" เท่านั้น ที่โชว์ตัวเลือกหวาน/แยกน้ำ/Blue Card
-  const isDrink = product.category === "เครื่องดื่ม";
+  const isDrink = product.category === "เครื่องดื่ม" && CATEGORY_TABS_SHOPS.indexOf(String(product.shop || "")) < 0; // ร้านแบบเซเว่น = เครื่องดื่มบรรจุขวด ไม่ต้องถามหวาน/แยกน้ำ
   const drinkBox = document.getElementById("qtyModalDrinkOptions");
   if(isDrink){
     pendingSweetness = "100%";
@@ -186,7 +186,7 @@ function changeQty(delta){
 
 function confirmAddToCart(){
   const product = window.productsData[pendingProductIndex];
-  const isDrink = product.category === "เครื่องดื่ม";
+  const isDrink = product.category === "เครื่องดื่ม" && CATEGORY_TABS_SHOPS.indexOf(String(product.shop || "")) < 0; // ร้านแบบเซเว่น = เครื่องดื่มบรรจุขวด ไม่ต้องถามหวาน/แยกน้ำ
 
   // 🆕 เก็บตัวเลือกที่เลือกไว้ (ถ้าเป็นเครื่องดื่ม) — ถ้าไม่ระบุ Blue Card ใช้เบอร์ร้านแทนอัตโนมัติ
   const options = isDrink ? {
@@ -401,7 +401,7 @@ function renderSearchResults(query){
     matchedProducts.forEach(function(item){
       const p = item.product;
       const inStock = p.inStock !== false;
-      html += '<div class="product-card' + (inStock ? '' : ' out-of-stock') + '" onclick="' + (inStock ? "openSearchProduct(" + item.index + ")" : "") + '">';
+      html += '<div class="product-card' + (inStock ? '' : ' out-of-stock') + '" data-cat="' + escapeHtml(String(product.category || "").trim()) + '" onclick="' + (inStock ? "openSearchProduct(" + item.index + ")" : "") + '">';
       if(p.image){ html += '<img class="product-img" src="' + escapeHtml(imgUrl_(p.image, 420)) + '">'; }
       if(!inStock){ html += '<span class="out-of-stock-badge">หมดชั่วคราว</span>'; }
       html += '<h3>' + escapeHtml(p.name) + '</h3>';
@@ -782,6 +782,18 @@ function renderHomeRecommendedGrid(){
   box.innerHTML = html;
 }
 
+// 🆕 ร้านที่ให้แสดงปุ่มแยกหมวดสินค้าในร้าน (เพิ่มชื่อร้านในลิสต์นี้ได้ ต้องตรงกับชื่อร้านในชีตทุกตัวอักษร)
+const CATEGORY_TABS_SHOPS = ["รับหิ้วเซเว่น"];
+
+window.filterShopCategory_ = function(cat){
+  document.querySelectorAll("#productList .cat-chip").forEach(function(b){
+    b.classList.toggle("active", b.getAttribute("data-cat") === cat);
+  });
+  document.querySelectorAll("#productList .product-card").forEach(function(c){
+    c.style.display = (cat === "" || c.getAttribute("data-cat") === cat) ? "" : "none";
+  });
+};
+
 function showProductsByShop(shopName, isRestore){
   selectedShopName = shopName;
   localStorage.setItem("pd_currentShop", shopName);
@@ -815,6 +827,17 @@ function showProductsByShop(shopName, isRestore){
       <div id="shopHoursBox">${shopHoursCardHtml_(shopName)}</div>
   `;
   const shopCanOrder = shopCanOrderNow_(shopName).canOrder;
+  if(CATEGORY_TABS_SHOPS.indexOf(shopName) >= 0){ // 🆕 ปุ่มแยกหมวดในร้าน
+    const cats = [];
+    window.productsData.forEach(function(p){
+      if(String(p.shop || "") === shopName){ const c = String(p.category || "").trim(); if(c && cats.indexOf(c) < 0){ cats.push(c); } }
+    });
+    if(cats.length > 1){
+      html += '<div class="cat-chips"><button type="button" class="cat-chip active" data-cat="" onclick="filterShopCategory_(\'\')">ทั้งหมด</button>';
+      cats.forEach(function(c){ html += '<button type="button" class="cat-chip" data-cat="' + escapeHtml(c) + '" onclick="filterShopCategory_(this.getAttribute(\'data-cat\'))">' + escapeHtml(c) + '</button>'; });
+      html += '</div>';
+    }
+  }
   html += '<div class="products-grid">';
 
   window.productsData.forEach(function(product, index){
@@ -827,7 +850,7 @@ function showProductsByShop(shopName, isRestore){
     const description = String(product.description || "");
     const inStock = product.inStock !== false; // 🆕 ค่าเริ่มต้น = มีสินค้า
 
-    html += '<div class="product-card' + (inStock ? '' : ' out-of-stock') + '" onclick="' + (inStock ? "openQtyModal(" + index + ")" : "") + '">';
+    html += '<div class="product-card' + (inStock ? '' : ' out-of-stock') + '" data-cat="' + escapeHtml(String(product.category || "").trim()) + '" onclick="' + (inStock ? "openQtyModal(" + index + ")" : "") + '">';
     if(image !== ""){
       html += '<img class="product-img" src="' + escapeHtml(imgUrl_(image, 420)) + '">';
     }

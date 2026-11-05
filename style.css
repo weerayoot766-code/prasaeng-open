@@ -1048,3 +1048,8 @@ body{
 .install-help-box ol{padding-left:22px}
 .install-help-box .install-go.full{width:100%}
 .install-help-box .ic{display:inline-block;padding:0 6px;border-radius:6px;background:#ffe0ee;font-weight:700}
+
+/* 🆕 ปุ่มแยกหมวดสินค้าในร้าน (เช่น เซเว่น) */
+.cat-chips{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 10px;margin:6px 0 4px;-webkit-overflow-scrolling:touch}
+.cat-chip{flex:0 0 auto;width:auto!important;margin:0!important;padding:8px 16px;border-radius:999px;border:1.5px solid #ff2d95;background:#fff;color:#d6336c;font-size:15px;font-weight:600;cursor:pointer}
+.cat-chip.active{background:#ff2d95;color:#fff}
