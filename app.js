@@ -401,7 +401,7 @@ function renderSearchResults(query){
     matchedProducts.forEach(function(item){
       const p = item.product;
       const inStock = p.inStock !== false;
-      html += '<div class="product-card' + (inStock ? '' : ' out-of-stock') + '" data-cat="' + escapeHtml(String(product.category || "").trim()) + '" onclick="' + (inStock ? "openSearchProduct(" + item.index + ")" : "") + '">';
+      html += '<div class="product-card' + (inStock ? '' : ' out-of-stock') + '" onclick="' + (inStock ? "openSearchProduct(" + item.index + ")" : "") + '">';
       if(p.image){ html += '<img class="product-img" src="' + escapeHtml(imgUrl_(p.image, 420)) + '">'; }
       if(!inStock){ html += '<span class="out-of-stock-badge">หมดชั่วคราว</span>'; }
       html += '<h3>' + escapeHtml(p.name) + '</h3>';
