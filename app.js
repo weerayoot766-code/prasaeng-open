@@ -1561,7 +1561,7 @@ function uploadSlipFor(id){
       const scale = Math.min(1, 800 / img.width);
       canvas.width = img.width * scale;
       canvas.height = img.height * scale;
-      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      { const ctx_ = canvas.getContext("2d"); ctx_.fillStyle = "#ffffff"; ctx_.fillRect(0, 0, canvas.width, canvas.height); ctx_.drawImage(img, 0, 0, canvas.width, canvas.height); }
       const base64 = canvas.toDataURL("image/jpeg", 0.75).split(",")[1];
       try {
         await apiPost('uploadSlipToTelegram', { orderId: id, fileName: file.name, base64: base64 });
@@ -1766,6 +1766,7 @@ function submitNewProduct(){
       canvas.width = maxWidth;
       canvas.height = img.height * scale;
       const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const image = canvas.toDataURL("image/jpeg", 0.6);
 
@@ -1938,6 +1939,7 @@ function saveEditedProduct(rowIndex){
         canvas.width = maxWidth;
         canvas.height = img.height * scale;
         const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         doSave(canvas.toDataURL("image/jpeg", 0.6));
       };
@@ -2121,7 +2123,7 @@ async function submitShopRegister(){
         const scale = maxWidth / img.width;
         canvas.width = maxWidth;
         canvas.height = img.height * scale;
-        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        { const ctx_ = canvas.getContext("2d"); ctx_.fillStyle = "#ffffff"; ctx_.fillRect(0, 0, canvas.width, canvas.height); ctx_.drawImage(img, 0, 0, canvas.width, canvas.height); }
         doRegister(canvas.toDataURL("image/jpeg", 0.7).split(",")[1]);
       };
       img.src = e.target.result;
