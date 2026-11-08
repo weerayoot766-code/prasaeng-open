@@ -1602,7 +1602,11 @@ function uploadSlipFor(id){
       { const ctx_ = canvas.getContext("2d"); ctx_.fillStyle = "#ffffff"; ctx_.fillRect(0, 0, canvas.width, canvas.height); ctx_.drawImage(img, 0, 0, canvas.width, canvas.height); }
       const base64 = canvas.toDataURL("image/jpeg", 0.75).split(",")[1];
       try {
-        await apiPost('uploadSlipToTelegram', { orderId: id, fileName: file.name, base64: base64 });
+        // กันค้างไม่รู้จบ: ถ้าเกิน 60 วินาทีให้หยุดรอ แล้วเปิดปุ่มให้กดส่งใหม่ได้ (เซิร์ฟเวอร์อาจรับไปแล้ว — แจ้งลูกค้าให้ทักแอดมินถ้าส่งซ้ำ)
+        await Promise.race([
+          apiPost('uploadSlipToTelegram', { orderId: id, fileName: file.name, base64: base64 }),
+          new Promise(function(_, rej){ setTimeout(function(){ rej(new Error("ใช้เวลานานผิดปกติ (เกิน 60 วินาที)")); }, 60000); })
+        ]);
         alert("ส่งสลิปเรียบร้อย ✅ (ออเดอร์ " + id + ")");
         const o = findMyOrder_(id);
         if(o){ o.status = "รอตรวจสอบสลิป"; saveMyOrders_(); }
@@ -1611,7 +1615,7 @@ function uploadSlipFor(id){
       } catch(error){
         uploadingSlip_[id] = false;
         if(btn){ btn.disabled = false; btn.textContent = "📤 ส่งสลิป " + id; }
-        alert("ส่งสลิปไม่สำเร็จ: " + error.message + "\n\nลองเช็คสัญญาณเน็ตแล้วกดส่งใหม่อีกครั้งได้เลยครับ (ยังไม่ถูกส่งซ้ำ ไม่ต้องกังวล)");
+        alert("ส่งสลิปไม่สำเร็จ: " + error.message + "\n\nลองเช็คสัญญาณเน็ตแล้วกดส่งใหม่อีกครั้งได้เลยครับ\n(ถ้าแจ้งว่าไม่สำเร็จหลายครั้ง ทักแชทแอดมินพร้อมแนบสลิปได้เลย)");
       }
     };
     img.onerror = function(){ uploadingSlip_[id] = false; if(btn){ btn.disabled = false; } alert("เปิดไฟล์รูปไม่ได้ กรุณาเลือกรูปสลิปใหม่"); };
