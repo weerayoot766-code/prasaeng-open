@@ -795,6 +795,7 @@ window.filterShopCategory_ = function(cat){
 };
 
 function showProductsByShop(shopName, isRestore){
+  if(selectedShopName !== shopName){ selectedShopLat = ""; selectedShopLng = ""; } // กันใช้พิกัดของร้านก่อนหน้าค้าง
   selectedShopName = shopName;
   localStorage.setItem("pd_currentShop", shopName);
 
@@ -804,6 +805,7 @@ function showProductsByShop(shopName, isRestore){
       selectedShopLat = store.lat;
       selectedShopLng = store.lng;
     }
+    try { recalcDelivery_(); } catch(e){}
   }).catch(function(){ /* ไม่กระทบการแสดงสินค้า ถ้าไม่พบข้อมูลร้าน */ });
 
   if(isRestore){
@@ -952,21 +954,52 @@ function calculateDistance(lat1, lon1, lat2, lon2){
   return R * c;
 }
 
+// 🆕 เกณฑ์ค่าส่งตามระยะ ร้าน → ลูกค้า (ไม่คิดช่วงไรเดอร์ไปร้าน)
+//   0–4.9 กม. = 40 · 5–9.9 = 60 · 10–12 = 80 · 12–15 = 100 · เกิน 15 กม. = สั่งผ่านแอพไม่ได้ (คืน null)
+const DELIVERY_MAX_KM = 15;
 function getDeliveryFee(distance){
-  if(distance <= 5){ return 40; }
-  else if(distance <= 10){ return 60; }
-  else{ return 80; }
+  if(distance < 5){ return 40; }
+  if(distance < 10){ return 60; }
+  if(distance <= 12){ return 80; }
+  if(distance <= DELIVERY_MAX_KM){ return 100; }
+  return null;
 }
+
+// พิกัดร้านที่เลือกอยู่ (ถ้าไม่มี/ผิดปกติ → null แล้วใช้จุดฐานแทน เหมือนระบบเดิม)
+function selectedShopPoint_(){
+  const a = parseFloat(selectedShopLat), b = parseFloat(selectedShopLng);
+  if(!isFinite(a) || !isFinite(b) || (a === 0 && b === 0)){ return null; }
+  return { lat: a, lng: b };
+}
+// ระยะ ร้าน → ลูกค้า (ถ้าไม่มีพิกัดร้าน ใช้จุดฐาน → ลูกค้า แบบเดิม)
+function tripInfo_(cLat, cLng){
+  const sp = selectedShopPoint_();
+  if(!sp){ const d = calculateDistance(shopLat, shopLng, cLat, cLng); return { total: d, toShop: 0, toCust: d, hasShop: false }; }
+  const toShop = calculateDistance(shopLat, shopLng, sp.lat, sp.lng), toCust = calculateDistance(sp.lat, sp.lng, cLat, cLng);
+  return { total: toCust, toShop: toShop, toCust: toCust, hasShop: true };
+}
+let locNote_ = "", deliveryTooFar_ = false;
 
 function applyLocation(newLat, newLng, sourceNote){
   lat = newLat;
   lng = newLng;
-  distanceKm = calculateDistance(shopLat, shopLng, lat, lng);
-  deliveryFee = getDeliveryFee(distanceKm);
+  locNote_ = sourceNote || "";
+  const t = tripInfo_(lat, lng);
+  distanceKm = t.total;
+  const fee = getDeliveryFee(distanceKm);
+  deliveryTooFar_ = (fee === null);
+  deliveryFee = deliveryTooFar_ ? 0 : fee;
+  const detail = "";
   document.getElementById("locationStatus").innerHTML =
     "ปักหมุดแล้ว ✅" + (sourceNote ? " (" + sourceNote + ")" : "") +
-    " ระยะทางประมาณ " + distanceKm.toFixed(2) + " กม. ค่าส่ง " + deliveryFee + " บาท";
+    (deliveryTooFar_
+      ? " <b style='color:#d6336c'>ระยะ " + distanceKm.toFixed(1) + " กม. เกิน " + DELIVERY_MAX_KM + " กม. สั่งผ่านแอพไม่ได้ กรุณาติดต่อแอดมิน</b>"
+      : " ระยะประมาณ " + distanceKm.toFixed(1) + " กม." + detail + " ค่าส่ง " + deliveryFee + " บาท");
   window.renderCart();
+}
+// เปลี่ยนร้านหลังปักหมุดแล้ว → คิดค่าส่งใหม่ตามร้านที่เลือกล่าสุด
+function recalcDelivery_(){
+  if(lat !== "" && lng !== "" && lat != null && lng != null){ applyLocation(lat, lng, locNote_); }
 }
 
 // 🆕 ปักหมุดแบบทนทาน: ลองแม่นยำสูง → ลองซ้ำแบบประหยัด → ถ้าไม่ได้ เปิดแผนที่ให้ลูกค้าเลื่อนปักเอง
@@ -1056,8 +1089,10 @@ function openOrderMapPicker_(why){
         document.getElementById("orderMapOk").style.opacity = "1";
       }
       if(orderPickMoved_){
-        const d = calculateDistance(shopLat, shopLng, c.lat, c.lng);
-        document.getElementById("orderMapInfo").innerHTML = "ระยะประมาณ <b>" + d.toFixed(2) + " กม.</b> · ค่าส่ง <b>" + getDeliveryFee(d) + " บาท</b>";
+        const d = tripInfo_(c.lat, c.lng).total, f = getDeliveryFee(d);
+        document.getElementById("orderMapInfo").innerHTML = f === null
+          ? "ระยะ <b>" + d.toFixed(1) + " กม.</b> · <b style='color:#d6336c'>เกิน " + DELIVERY_MAX_KM + " กม. สั่งผ่านแอพไม่ได้</b>"
+          : "ระยะประมาณ <b>" + d.toFixed(1) + " กม.</b> · ค่าส่ง <b>" + f + " บาท</b>";
       }
     });
   }
@@ -1119,6 +1154,8 @@ let isSubmittingOrder = false; // 🆕 กันลูกค้ากดปุ�
 async function confirmOrder(){
   if(isSubmittingOrder){ return; } // 🆕 กำลังส่งอยู่แล้ว ไม่ต้องทำซ้ำแม้กดซ้ำมากี่ครั้งก็ตาม
   if(cart.length===0){ alert("ยังไม่มีสินค้า"); return; }
+  try { recalcDelivery_(); } catch(e){} // คิดค่าส่งใหม่ตามร้านล่าสุดอีกครั้งก่อนส่ง
+  if(deliveryTooFar_){ alert("ระยะส่งเกิน " + DELIVERY_MAX_KM + " กม. สั่งผ่านแอพไม่ได้ครับ\nกรุณาติดต่อแอดมินเพื่อสั่งพิเศษ"); return; }
   const confirmState = shopCanOrderNow_(selectedShopName);
   if(!confirmState.canOrder){
     alert(confirmState.paused ? "ร้านนี้พักรับออเดอร์ชั่วคราว ขออภัยครับ" : "ตอนนี้ร้านปิดแล้วครับ" + (confirmState.next ? " (" + confirmState.next + " น.)" : "") + "\nกรุณาสั่งใหม่ตอนร้านเปิดนะครับ");
@@ -1202,6 +1239,7 @@ async function confirmOrder(){
     lng = "";
     deliveryFee = 0;
     distanceKm = 0;
+    deliveryTooFar_ = false; locNote_ = "";
     document.getElementById("locationStatus").innerHTML = "ยังไม่ได้ปักหมุด";
     window.renderCart();
 
