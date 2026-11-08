@@ -167,9 +167,13 @@ button{font-family:inherit}
   <div class="ovtop"><button class="x" onclick="closeProof()">←</button><div><small id="pvNo"></small><h2 id="pvShop">ยืนยันส่งของ</h2></div></div>
   <div style="padding:14px">
     <div class="steps"><div class="st done"><b>✓</b>รับงาน</div><div class="st done"><b>✓</b>รับของ</div><div class="st now"><b>3</b>ส่งของ</div></div>
-    <div class="photo" id="pvPhoto" onclick="pickPhoto()"><span class="big">📷</span>แตะเพื่อถ่ายรูปตอนส่งของ</div>
+    <div class="photo" id="pvPhoto" onclick="pickPhoto('cam')"><span class="big">📷</span>แตะเพื่อถ่ายรูปตอนส่งของ</div>
     <input type="file" id="pvFile" accept="image/*" capture="environment" class="hide">
-    <button class="btn w" id="pvRetake" onclick="pickPhoto()" style="display:none">📷 ถ่ายใหม่</button>
+    <input type="file" id="pvGal" accept="image/*" class="hide">
+    <div id="pvBtns" style="display:flex;gap:10px;margin-top:10px">
+      <button class="btn w" id="pvCam" onclick="pickPhoto('cam')" style="flex:1;margin:0">📷 ถ่ายรูป</button>
+      <button class="btn w" id="pvGalBtn" onclick="pickPhoto('gal')" style="flex:1;margin:0">🖼️ เลือกรูปที่มี</button>
+    </div>
     <div class="earn">เสร็จงานนี้ได้โอนคืน<br><b id="pvPay">฿ 0</b><br><span style="font-size:15px;color:var(--mut)" id="pvPayDetail"></span></div>
     <button class="btn" id="pvOk" onclick="submitProof()" disabled>✅ ยืนยัน ส่งสำเร็จ</button>
   </div>
@@ -629,24 +633,26 @@ function openProof(oid){
   $('pvPay').textContent = '฿ ' + fmt(j.payout); $('pvPayDetail').textContent = '(สำรองจ่าย ' + fmt(j.goods) + ' + ค่าส่ง ' + fmt(j.riderFee) + ')';
   resetPhoto(); $('proofOv').classList.remove('hide');
 }
-function resetPhoto(){ const p = $('pvPhoto'); p.className = 'photo'; p.innerHTML = '<span class="big">📷</span>แตะเพื่อถ่ายรูปตอนส่งของ'; $('pvRetake').style.display = 'none'; $('pvOk').disabled = true; if(PROOF) PROOF.data = null; }
+function resetPhoto(){ const p = $('pvPhoto'); p.className = 'photo'; p.innerHTML = '<span class="big">📷</span>แตะเพื่อถ่ายรูปตอนส่งของ<br><small style="font-size:15px">หรือกด "เลือกรูปที่มี" ด้านล่าง</small>'; $('pvCam').textContent = '📷 ถ่ายรูป'; $('pvGalBtn').textContent = '🖼️ เลือกรูปที่มี'; $('pvOk').disabled = true; if(PROOF) PROOF.data = null; }
 function closeProof(){ $('proofOv').classList.add('hide'); PROOF = null; }
-function pickPhoto(){ $('pvFile').value = ''; $('pvFile').click(); }
-$('pvFile').addEventListener('change', async e => {
+function pickPhoto(mode){ const el = $(mode === 'gal' ? 'pvGal' : 'pvFile'); el.value = ''; el.click(); }
+async function onPhotoPicked(e){
   const f = e.target.files && e.target.files[0]; if(!f || !PROOF) return;
   try {
     const data = await shrink(f, 1280, .75);
     PROOF.data = data;
     const p = $('pvPhoto'); p.className = 'photo has'; p.innerHTML = '<img alt="" src="' + data + '">';
-    $('pvRetake').style.display = 'block'; $('pvOk').disabled = false;
-  } catch(err){ toast('❌ อ่านรูปไม่ได้ ลองถ่ายใหม่'); }
-});
+    $('pvCam').textContent = '📷 ถ่ายใหม่'; $('pvGalBtn').textContent = '🖼️ เลือกรูปอื่น'; $('pvOk').disabled = false;
+  } catch(err){ toast('❌ อ่านรูปไม่ได้ ลองรูปอื่นหรือถ่ายใหม่'); }
+}
+$('pvFile').addEventListener('change', onPhotoPicked);
+$('pvGal').addEventListener('change', onPhotoPicked);
 function shrink(file, max, q){
   return new Promise((res, rej) => {
     const url = URL.createObjectURL(file), img = new Image();
     img.onload = () => {
       let w = img.naturalWidth, h = img.naturalHeight; const s = Math.min(1, max / Math.max(w, h)); w = Math.round(w * s); h = Math.round(h * s);
-      const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
+      const c = document.createElement('canvas'); c.width = w; c.height = h; const cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', q));
     };
     img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('img')); }; img.src = url;
