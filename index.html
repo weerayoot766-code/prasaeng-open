@@ -23,6 +23,23 @@
 
 <body>
 
+<div class="hours-bar" id="hoursBar" role="status">
+  <span class="hb-dot"></span>
+  <span class="hb-main">เปิดให้บริการ <b>ทุกวัน</b> เวลา <b>08.00 – 16.00 น.</b></span>
+  <span class="hb-now" id="hoursNow"></span>
+</div>
+<script>
+(function(){ // บอกสถานะ "ตอนนี้" ตามเวลาไทย (ข้อความประกอบเท่านั้น ไม่ได้ปิดการสั่ง)
+  try{
+    var p = new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());
+    var hh = +p.filter(function(x){return x.type==='hour'})[0].value % 24, mm = +p.filter(function(x){return x.type==='minute'})[0].value;
+    var t = hh*60+mm, open = t>=480 && t<960, bar = document.getElementById('hoursBar'), el = document.getElementById('hoursNow');
+    if(open){ el.textContent = 'ตอนนี้เปิดอยู่'; }
+    else { bar.classList.add('closed'); el.textContent = t<480 ? 'เปิดวันนี้ 08.00 น.' : 'ปิดแล้ววันนี้ เปิดใหม่พรุ่งนี้ 08.00 น.'; }
+  }catch(e){}
+})();
+</script>
+
 <div class="bottom-nav">
   <button class="nav-item active" data-tab="home" onclick="switchTab('home')"><span class="nav-ico">🏠</span><span>หน้าแรก</span></button>
   <button class="nav-item" data-tab="order" onclick="switchTab('order')"><span class="nav-ico">🛍️</span><span>สั่งของ</span></button>

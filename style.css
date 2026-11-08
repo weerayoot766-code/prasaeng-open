@@ -1053,3 +1053,15 @@ body{
 .cat-chips{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 10px;margin:6px 0 4px;-webkit-overflow-scrolling:touch}
 .cat-chip{flex:0 0 auto;width:auto!important;margin:0!important;padding:8px 16px;border-radius:999px;border:1.5px solid #ff2d95;background:#fff;color:#d6336c;font-size:15px;font-weight:600;cursor:pointer}
 .cat-chip.active{background:#ff2d95;color:#fff}
+
+/* ---------- 🟢 แถบเวลาเปิดให้บริการ (ติดบนสุดทุกแท็บ) ---------- */
+.hours-bar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 10px;
+  padding:9px 14px;color:#fff;font-weight:600;font-size:14px;line-height:1.35;text-align:center;
+  background:linear-gradient(90deg,#16a34a,#22c55e);box-shadow:0 3px 10px rgba(22,163,74,.35)}
+.hours-bar b{font-weight:800}
+.hours-bar .hb-dot{width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 0 0 0 rgba(255,255,255,.8);animation:hbPulse 1.8s infinite}
+.hours-bar .hb-now{background:rgba(255,255,255,.22);border-radius:99px;padding:2px 10px;font-size:12.5px;font-weight:700}
+.hours-bar:not(.closed) .hb-now:empty{display:none}
+.hours-bar.closed{background:linear-gradient(90deg,#15803d,#16a34a)}
+.hours-bar.closed .hb-dot{animation:none;background:#fde68a}
+@keyframes hbPulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.8)}70%{box-shadow:0 0 0 8px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}
