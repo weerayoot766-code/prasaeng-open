@@ -58,6 +58,8 @@ button{font-family:inherit}
 .badge{background:var(--warn);color:var(--warnt);padding:2px 10px;border-radius:10px;font-weight:700;font-size:14px}
 .badge.g{background:var(--g1);color:var(--g7)}
 .shop{font-size:28px;font-weight:800;margin:4px 0;line-height:1.25}
+.readybar{background:#16a34a;color:#fff;font-weight:800;font-size:20px;border-radius:14px;padding:12px 14px;margin:8px 0;text-align:center;animation:rdyp 1.6s infinite}.readybar small{display:block;font-weight:600;font-size:14px;opacity:.9}
+@keyframes rdyp{0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,.6)}50%{box-shadow:0 0 0 10px rgba(22,163,74,0)}}
 .line{font-size:18px;margin:4px 0}.line.mu{color:var(--mut);font-size:16px}
 .items{background:var(--g1);border-radius:12px;padding:9px 11px;font-size:19px;margin:8px 0;line-height:1.5;white-space:pre-wrap;word-break:break-word}
 .money{display:flex;gap:8px;margin:8px 0}
@@ -282,12 +284,16 @@ function enterApp(){
 }
 
 /* ---------- ดึงงาน ---------- */
+const READY_SEEN = {}; let READY_INIT = false;
 async function refresh(silent){
   if(!CR) return;
   try {
     const d = await call('riderGetJobs');
     $('netbar').classList.add('hide');
     DATA = d; $('hName').textContent = d.rider.name;
+    // 🍳 ร้านกด "อาหารพร้อมแล้ว" → เสียงเตือนครั้งเดียวต่อออเดอร์
+    (d.active || []).forEach(function(j){ if(j.readyAt && !READY_SEEN[j.orderId]){ READY_SEEN[j.orderId] = 1; if(READY_INIT){ beep(); toast('🍳 อาหารพร้อมแล้ว! ' + (j.shop||'') + ' มารับได้เลย'); } } });
+    READY_INIT = true;
     // แจ้งเตือนเมื่อมีงานใหม่เข้ามา
     const ids = d.fresh.map(j => j.orderId);
     if(SEEN === null){ SEEN = new Set(ids); }
@@ -296,7 +302,7 @@ async function refresh(silent){
       if(added.length){ beep(); toast('🔔 มีงานใหม่ ' + added.length + ' งาน!'); if(TAB !== 'new') TAB = 'new'; }
       ids.forEach(i => SEEN.add(i));
     }
-    const sig = JSON.stringify([d.fresh.map(j=>j.orderId), (d.skipped||[]).map(j=>j.orderId), d.active.map(j=>[j.orderId,j.status]), d.done.map(j=>[j.orderId,j.payoutStatus]), d.today]);
+    const sig = JSON.stringify([d.fresh.map(j=>j.orderId), (d.skipped||[]).map(j=>j.orderId), d.active.map(j=>[j.orderId,j.status,j.readyAt||'']), d.done.map(j=>[j.orderId,j.payoutStatus]), d.today]);
     if(sig !== SIG || !silent){ SIG = sig; render(); }
   } catch(e){
     if(isAuthErr(e)){ lsDel('pdr_cred'); showLogin('กรุณาเข้าสู่ระบบอีกครั้ง (' + e.message + ')'); return; }
@@ -417,6 +423,7 @@ function activeCard(j){
   const custNav = (j.custLat != null) ? '<a class="btn w" target="_blank" rel="noopener" href="' + gmaps(j.custLat, j.custLng) + '">🧭 ไปบ้านลูกค้า</a>' : '<button class="btn w" disabled>🧭 ไม่มีพิกัดลูกค้า</button>';
   return '<div class="card doing"><div class="no"><span>#' + esc(j.orderId) + '</span><span class="badge g">' + stTxt + '</span></div>' +
     '<div class="shop">🏪 ' + esc(j.shop || 'ไม่ระบุร้าน') + '</div>' + stepsHtml(j.status) +
+    (j.readyAt && j.status !== 'กำลังส่ง' ? '<div class="readybar">🍳 อาหารพร้อมแล้ว มารับได้เลย! <small>(ร้านกดเมื่อ ' + esc(j.readyAt) + ' น.)</small></div>' : '') +
     '<div class="items">' + esc(j.items) + '</div>' +
     '<div class="line">👤 <b>' + esc(j.customerName) + '</b></div>' +
     (j.address ? '<div class="line mu">📍 ' + esc(j.address) + '</div>' : '') +
