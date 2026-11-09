@@ -624,10 +624,13 @@ function groupShopsByCategory(shops){
   const byCategory = {};
   shops.forEach(function(shop){
     const storeInfo = (window.storesData || []).find(function(s){ return s.name === shop; });
-    let category = storeInfo && storeInfo.category ? String(storeInfo.category).trim() : "";
-    if(category === ""){ category = "อื่นๆ"; }
-    if(!byCategory[category]){ byCategory[category] = []; }
-    byCategory[category].push(shop);
+    // 🆕 ร้านอยู่ได้หลายหมวด: ในชีตร้านค้า คอลัมน์หมวด ใส่คั่นด้วย "," เช่น  เบเกอรี่,อาหาร  (ใช้ / ในชื่อหมวดได้ตามปกติ เช่น กาแฟ/เครื่องดื่ม)
+    let cats = String(storeInfo && storeInfo.category ? storeInfo.category : "").split(/[,，、;]/).map(function(x){ return x.trim(); }).filter(function(x, i, arr){ return x && arr.indexOf(x) === i; });
+    if(cats.length === 0){ cats = ["อื่นๆ"]; }
+    cats.forEach(function(category){
+      if(!byCategory[category]){ byCategory[category] = []; }
+      byCategory[category].push(shop);
+    });
   });
 
   const ordered = [];
