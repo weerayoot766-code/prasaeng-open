@@ -2403,7 +2403,9 @@ function renderAdSlider(ads, trackId){
 
   track.innerHTML = allAds.map(function(ad){
     const clickable = ad.linkShopName ? 'style="cursor:pointer;" onclick="adClickHandler(\'' + escapeHtml(ad.linkShopName) + '\')"' : '';
-    return '<img src="' + escapeHtml(imgUrl_(ad.imageUrl, 1000)) + '" ' + clickable + '>';
+    const u = escapeHtml(imgUrl_(ad.imageUrl, 1000));
+    // 🆕 โชว์รูปโฆษณาเต็มภาพ (contain) ส่วนที่เหลือเติมด้วยภาพเดียวกันแบบเบลอ ไม่ตัดขอบอีก
+    return '<div class="ad-item" ' + clickable + '><div class="ad-bg" style="background-image:url(\'' + u + '\')"></div><img src="' + u + '"></div>';
   }).join('');
 
   const imageWidth = 330;
