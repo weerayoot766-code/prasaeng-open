@@ -2387,6 +2387,11 @@ async function loadAdSlider(){
 function adClickHandler(linkShopName){
   if(linkShopName === "__แฟลช__"){ goToFlashPage(); return; }
   if(linkShopName === "__ลงโฆษณา__"){ goToAdsPage(); return; }
+  // 🆕 ถ้าช่องลิงก์ของโฆษณาเป็นเว็บ (http/https) ให้เปิดเว็บนั้น แทนการค้นหาเป็นชื่อร้าน
+  if(/^https?:\/\//i.test(String(linkShopName || "").trim())){
+    window.open(String(linkShopName).trim(), "_blank", "noopener");
+    return;
+  }
   if(linkShopName){ goToShopFromAd(linkShopName); }
 }
 
