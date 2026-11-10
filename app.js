@@ -2389,7 +2389,10 @@ function adClickHandler(linkShopName){
   if(linkShopName === "__ลงโฆษณา__"){ goToAdsPage(); return; }
   // 🆕 ถ้าช่องลิงก์ของโฆษณาเป็นเว็บ (http/https) ให้เปิดเว็บนั้น แทนการค้นหาเป็นชื่อร้าน
   if(/^https?:\/\//i.test(String(linkShopName || "").trim())){
-    window.open(String(linkShopName).trim(), "_blank", "noopener");
+    const u = String(linkShopName).trim();
+    let w = null;
+    try { w = window.open(u, "_blank"); if(w){ w.opener = null; } } catch(e){}
+    if(!w){ window.location.href = u; } // เบราว์เซอร์ในแอพ (เช่น LINE) / แอพที่ติดตั้งบนหน้าจอ บางตัวบล็อกแท็บใหม่ → ไปในหน้าเดิมแทน
     return;
   }
   if(linkShopName){ goToShopFromAd(linkShopName); }
