@@ -1614,37 +1614,74 @@ function uploadSlipFor(id){
   uploadingSlip_[id] = true;
   if(btn){ btn.disabled = true; btn.textContent = "⏳ กำลังส่งสลิป..."; }
 
-  const reader = new FileReader();
-  reader.onload = function(e){
+  // 🆕 กันค้างทุกขั้นตอน (อ่านไฟล์ → ย่อรูป → ส่ง): ไม่ว่าขั้นไหนพัง/เงียบ ต้องปลดปุ่มและบอกลูกค้าเสมอ
+  let finished = false, wd = null, objUrl = null;
+  function finish(msg){
+    if(finished) return; finished = true;
+    clearTimeout(wd);
+    if(objUrl){ try { URL.revokeObjectURL(objUrl); } catch(e){} }
+    uploadingSlip_[id] = false;
+    if(msg){
+      const b2 = document.getElementById("slipbtn-" + id);
+      if(b2){ b2.disabled = false; b2.textContent = "📤 ส่งสลิป " + id; }
+      alert(msg);
+    }
+  }
+  wd = setTimeout(function(){ finish("ส่งสลิปใช้เวลานานผิดปกติ จึงหยุดรอ\n\nลองกดส่งใหม่อีกครั้ง หรือเลือกรูปสลิปใหม่ (ถ่ายหน้าจอสลิปจากแอพธนาคารจะเล็กและส่งง่ายกว่า) หรือส่งสลิปทางแชทแอดมินได้เลยครับ"); }, 90000);
+
+  async function send(base64){
+    try {
+      await Promise.race([
+        apiPost('uploadSlipToTelegram', { orderId: id, fileName: file.name, base64: base64 }),
+        new Promise(function(_, rej){ setTimeout(function(){ rej(new Error("ใช้เวลานานผิดปกติ (เกิน 60 วินาที)")); }, 60000); })
+      ]);
+      if(finished) return;
+      finish();
+      alert("ส่งสลิปเรียบร้อย ✅ (ออเดอร์ " + id + ")");
+      const o = findMyOrder_(id);
+      if(o){ o.status = "รอตรวจสอบสลิป"; saveMyOrders_(); }
+      renderOrders_(true);
+    } catch(error){
+      finish("ส่งสลิปไม่สำเร็จ: " + (error && error.message ? error.message : error) + "\n\nลองเช็คสัญญาณเน็ตแล้วกดส่งใหม่อีกครั้งได้เลยครับ\n(ถ้าแจ้งว่าไม่สำเร็จหลายครั้ง ทักแชทแอดมินพร้อมแนบสลิปได้เลย)");
+    }
+  }
+  // ขั้นย่อรูป: ถ้าทำไม่ได้ (รูปใหญ่/เครื่องเก่า/รูปแปลก) ใช้ไฟล์เดิมส่งแทน ถ้าไม่เกิน 3 MB
+  function fallbackOriginal(reason){
+    if(finished) return;
+    if(file.size <= 3 * 1024 * 1024){
+      const r2 = new FileReader();
+      r2.onload = function(ev){ send(String(ev.target.result).split(",")[1] || ""); };
+      r2.onerror = function(){ finish("อ่านไฟล์สลิปไม่ได้ กรุณาเลือกรูปใหม่อีกครั้ง"); };
+      r2.readAsDataURL(file);
+    } else {
+      finish("ย่อรูปสลิปไม่สำเร็จ (" + reason + ")\nรูปใหญ่เกินไป กรุณาเลือกรูปใหม่ หรือแคปหน้าจอสลิปจากแอพธนาคารแล้วส่งอีกครั้งครับ");
+    }
+  }
+
+  try {
+    objUrl = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = async function(){
-      const canvas = document.createElement("canvas");
-      const scale = Math.min(1, 800 / img.width);
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      { const ctx_ = canvas.getContext("2d"); ctx_.fillStyle = "#ffffff"; ctx_.fillRect(0, 0, canvas.width, canvas.height); ctx_.drawImage(img, 0, 0, canvas.width, canvas.height); }
-      const base64 = canvas.toDataURL("image/jpeg", 0.75).split(",")[1];
+    img.onload = function(){
       try {
-        // กันค้างไม่รู้จบ: ถ้าเกิน 60 วินาทีให้หยุดรอ แล้วเปิดปุ่มให้กดส่งใหม่ได้ (เซิร์ฟเวอร์อาจรับไปแล้ว — แจ้งลูกค้าให้ทักแอดมินถ้าส่งซ้ำ)
-        await Promise.race([
-          apiPost('uploadSlipToTelegram', { orderId: id, fileName: file.name, base64: base64 }),
-          new Promise(function(_, rej){ setTimeout(function(){ rej(new Error("ใช้เวลานานผิดปกติ (เกิน 60 วินาที)")); }, 60000); })
-        ]);
-        alert("ส่งสลิปเรียบร้อย ✅ (ออเดอร์ " + id + ")");
-        const o = findMyOrder_(id);
-        if(o){ o.status = "รอตรวจสอบสลิป"; saveMyOrders_(); }
-        uploadingSlip_[id] = false;
-        renderOrders_(true);
-      } catch(error){
-        uploadingSlip_[id] = false;
-        if(btn){ btn.disabled = false; btn.textContent = "📤 ส่งสลิป " + id; }
-        alert("ส่งสลิปไม่สำเร็จ: " + error.message + "\n\nลองเช็คสัญญาณเน็ตแล้วกดส่งใหม่อีกครั้งได้เลยครับ\n(ถ้าแจ้งว่าไม่สำเร็จหลายครั้ง ทักแชทแอดมินพร้อมแนบสลิปได้เลย)");
-      }
+        const w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height;
+        if(!w0 || !h0){ fallbackOriginal("อ่านขนาดรูปไม่ได้"); return; }
+        const scale = Math.min(1, 800 / w0);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(w0 * scale));
+        canvas.height = Math.max(1, Math.round(h0 * scale));
+        const ctx_ = canvas.getContext("2d");
+        if(!ctx_){ fallbackOriginal("เบราว์เซอร์ไม่รองรับ"); return; }
+        ctx_.fillStyle = "#ffffff"; ctx_.fillRect(0, 0, canvas.width, canvas.height);
+        ctx_.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const url = canvas.toDataURL("image/jpeg", 0.75);
+        const b64 = url.split(",")[1];
+        if(!b64){ fallbackOriginal("แปลงรูปไม่ได้"); return; }
+        send(b64);
+      } catch(err){ fallbackOriginal(err && err.message ? err.message : "ผิดพลาด"); }
     };
-    img.onerror = function(){ uploadingSlip_[id] = false; if(btn){ btn.disabled = false; } alert("เปิดไฟล์รูปไม่ได้ กรุณาเลือกรูปสลิปใหม่"); };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+    img.onerror = function(){ fallbackOriginal("เปิดไฟล์รูปไม่ได้ (ถ้าเป็นรูปจากไอโฟน ลองแคปหน้าจอสลิปแทน)"); };
+    img.src = objUrl;
+  } catch(err){ fallbackOriginal(err && err.message ? err.message : "ผิดพลาด"); }
 }
 
 // 💬 แชทสด: เปิดห้องแชทของ "ออเดอร์ที่เลือก" (channel = 'admin' | 'rider')
