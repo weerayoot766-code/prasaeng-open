@@ -154,7 +154,7 @@ function openQtyModal(index){
 }
 
 function renderSweetnessOptions(){
-  const options = ["25%","50%","75%","100%"];
+  const options = ["0%","25%","50%","75%","100%"];
   document.getElementById("sweetnessOptions").innerHTML = options.map(function(o){
     return '<button type="button" class="option-pill' + (o === pendingSweetness ? ' active' : '') + '" onclick="selectSweetness(\'' + o + '\')">' + o + '</button>';
   }).join('');
