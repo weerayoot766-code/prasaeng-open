@@ -968,6 +968,25 @@ function getDeliveryFee(distance){
   return null;
 }
 
+// ⏱ เวลาส่งโดยประมาณ (ตารางตัวเลขตายตัว จากสถิติ 60 วันของออเดอร์จริง — ปรับตัวเลขได้ที่นี่)
+//    [ระยะสูงสุดของช่วง (กม.), นาทีต่ำสุด, นาทีสูงสุด]
+const ETA_TABLE = [ [5, 30, 45], [10, 45, 70], [Infinity, 60, 0] ];  // 0 = "ขึ้นไป" (ไม่มีขอบบน)
+// ร้านที่ช้า/เร็วกว่าปกติ: ใส่ส่วนของชื่อร้าน → [ปรับนาทีต่ำสุด, ปรับนาทีสูงสุด]  (ค่าลบ = เร็วขึ้น)
+const ETA_SHOP_ADJ = [ ["พิซซ่า", 10, 15], ["โดนกะแฟ", -5, -10], ["กาแฟ", -5, -10], ["น้ำติดนม", -5, -10] ];
+function etaText_(km, shopName){
+  let row = ETA_TABLE[ETA_TABLE.length - 1];
+  for(let i = 0; i < ETA_TABLE.length; i++){ if(km < ETA_TABLE[i][0]){ row = ETA_TABLE[i]; break; } }
+  let lo = row[1], hi = row[2];
+  const nm = String(shopName || "");
+  for(let i = 0; i < ETA_SHOP_ADJ.length; i++){
+    if(nm.indexOf(ETA_SHOP_ADJ[i][0]) >= 0){ lo += ETA_SHOP_ADJ[i][1]; if(hi){ hi += ETA_SHOP_ADJ[i][2]; } break; }
+  }
+  lo = Math.max(10, Math.round(lo / 5) * 5);
+  if(!hi){ return "ประมาณ " + lo + " นาทีขึ้นไป"; }
+  hi = Math.max(lo + 5, Math.round(hi / 5) * 5);
+  return "ประมาณ " + lo + "–" + hi + " นาที";
+}
+
 // พิกัดร้านที่เลือกอยู่ (ถ้าไม่มี/ผิดปกติ → null แล้วใช้จุดฐานแทน เหมือนระบบเดิม)
 function selectedShopPoint_(){
   const a = parseFloat(selectedShopLat), b = parseFloat(selectedShopLng);
@@ -997,7 +1016,8 @@ function applyLocation(newLat, newLng, sourceNote){
     "ปักหมุดแล้ว ✅" + (sourceNote ? " (" + sourceNote + ")" : "") +
     (deliveryTooFar_
       ? " <b style='color:#d6336c'>ระยะ " + distanceKm.toFixed(1) + " กม. เกิน " + DELIVERY_MAX_KM + " กม. สั่งผ่านแอพไม่ได้ กรุณาติดต่อแอดมิน</b>"
-      : " ระยะประมาณ " + distanceKm.toFixed(1) + " กม." + detail + " ค่าส่ง " + deliveryFee + " บาท");
+      : " ระยะประมาณ " + distanceKm.toFixed(1) + " กม." + detail + " ค่าส่ง " + deliveryFee + " บาท" +
+        "<br>⏱ ส่งถึงใน" + etaText_(distanceKm, selectedShopName) + " <small style='opacity:.75'>(เวลาโดยประมาณ)</small>");
   window.renderCart();
 }
 // เปลี่ยนร้านหลังปักหมุดแล้ว → คิดค่าส่งใหม่ตามร้านที่เลือกล่าสุด
@@ -1095,7 +1115,7 @@ function openOrderMapPicker_(why){
         const d = tripInfo_(c.lat, c.lng).total, f = getDeliveryFee(d);
         document.getElementById("orderMapInfo").innerHTML = f === null
           ? "ระยะ <b>" + d.toFixed(1) + " กม.</b> · <b style='color:#d6336c'>เกิน " + DELIVERY_MAX_KM + " กม. สั่งผ่านแอพไม่ได้</b>"
-          : "ระยะประมาณ <b>" + d.toFixed(1) + " กม.</b> · ค่าส่ง <b>" + f + " บาท</b>";
+          : "ระยะประมาณ <b>" + d.toFixed(1) + " กม.</b> · ค่าส่ง <b>" + f + " บาท</b><br>⏱ " + etaText_(d, selectedShopName) + " <small style='opacity:.75'>(โดยประมาณ)</small>";
       }
     });
   }
