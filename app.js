@@ -2188,13 +2188,28 @@ async function submitShopRegister(){
   }
 
   // 🆕 ฟังก์ชันย่อยสำหรับยิงข้อมูลไปหลังบ้าน (แยกไว้เผื่อต้องรอบีบอัดโลโก้ก่อน)
+  let regDone_ = false, regWd_ = null;
+  function regUnlock_(msg){ // ปลดล็อกปุ่ม + แจ้งลูกค้า (ใช้ทุกกรณีที่ค้าง/พัง)
+    if(regDone_) return; regDone_ = true; clearTimeout(regWd_);
+    isSubmittingShopRegister = false;
+    if(shopRegisterBtn){ shopRegisterBtn.disabled = false; shopRegisterBtn.textContent = originalShopRegisterBtnText; }
+    if(msg){ alert(msg); }
+  }
+  // 🆕 กันค้างทุกขั้นตอน (อ่านโลโก้ → ย่อรูป → ส่ง) ไม่เกิน 100 วินาที
+  regWd_ = setTimeout(function(){
+    regUnlock_("การส่งใบสมัครใช้เวลานานผิดปกติ จึงหยุดรอ\n\n⚠️ ใบสมัครอาจถูกส่งไปแล้ว ก่อนกดส่งใหม่ กรุณาทักแอดมินเพื่อเช็คก่อน จะได้ไม่สมัครซ้ำ\nหรือลองเลือกโลโก้ใหม่ (รูปเล็กลง) หรือไม่ใส่โลโก้ แล้วส่งอีกครั้ง");
+  }, 100000);
+
   async function doRegister(logoBase64){
+    if(regDone_) return;
     try {
-      const result = await apiPost('registerStore', { data: {
+      const result = await Promise.race([ apiPost('registerStore', { data: {
         name: name, phone: phone, category: category, storeAddress: storeAddress,
         lat: registerShopLat, lng: registerShopLng,
         logo: logoBase64 || ""   // 🆕 ส่งโลโก้ (ถ้ามี) ไปพร้อมกันเลย
-      }});
+      }}), new Promise(function(_, rej){ setTimeout(function(){ rej(new Error("เซิร์ฟเวอร์ตอบช้าเกิน 80 วินาที — ใบสมัครอาจถูกส่งไปแล้ว ก่อนส่งใหม่ให้ทักแอดมินเช็คก่อนเพื่อไม่ให้สมัครซ้ำ")); }, 80000); }) ]);
+      if(regDone_) return;
+      regDone_ = true; clearTimeout(regWd_);
       alert(
         "ส่งใบสมัครร้านค้าแล้ว ✅\n\n" +
         "รหัสร้าน: " + result.storeId + "\n" +
@@ -2205,32 +2220,43 @@ async function submitShopRegister(){
       showCustomerHome();
     } catch(error){
       // 🆕 ส่งไม่สำเร็จ (เช่นเน็ตหลุด) ปลดล็อกปุ่มคืนให้กดส่งใหม่ได้
-      isSubmittingShopRegister = false;
-      if(shopRegisterBtn){
-        shopRegisterBtn.disabled = false;
-        shopRegisterBtn.textContent = originalShopRegisterBtnText;
-      }
-      alert("สมัครร้านไม่สำเร็จ: " + error.message);
+      regUnlock_("สมัครร้านไม่สำเร็จ: " + (error && error.message ? error.message : error));
     }
   }
 
   // 🆕 ถ้าเลือกไฟล์โลโก้มา ให้บีบอัดก่อนแล้วค่อยส่ง ไม่งั้นส่งแบบไม่มีโลโก้ไปเลย
   if(logoFile){
-    const reader = new FileReader();
-    reader.onload = function(e){
+    // อ่านโลโก้ไม่ได้/ย่อรูปไม่ได้ → ถามว่าจะส่งใบสมัครโดยไม่มีโลโก้ไหม (แทนการค้างเงียบๆ) ใส่โลโก้ทีหลังได้
+    function noLogo_(why){
+      if(regDone_) return;
+      if(confirm("ใช้ไฟล์โลโก้นี้ไม่ได้ (" + why + ")\n\nส่งใบสมัครโดยไม่มีโลโก้เลยไหม? (เพิ่มโลโก้ภายหลังได้)")){ doRegister(""); }
+      else { regUnlock_(""); }
+    }
+    let logoObjUrl_ = null;
+    try {
+      logoObjUrl_ = URL.createObjectURL(logoFile);
       const img = new Image();
       img.onload = function(){
-        const canvas = document.createElement("canvas");
-        const maxWidth = 400;
-        const scale = maxWidth / img.width;
-        canvas.width = maxWidth;
-        canvas.height = img.height * scale;
-        { const ctx_ = canvas.getContext("2d"); ctx_.fillStyle = "#ffffff"; ctx_.fillRect(0, 0, canvas.width, canvas.height); ctx_.drawImage(img, 0, 0, canvas.width, canvas.height); }
-        doRegister(canvas.toDataURL("image/jpeg", 0.7).split(",")[1]);
+        try {
+          const w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height;
+          if(!w0 || !h0){ noLogo_("อ่านขนาดรูปไม่ได้"); return; }
+          const canvas = document.createElement("canvas");
+          const maxWidth = 400;
+          const scale = Math.min(1, maxWidth / w0);
+          canvas.width = Math.max(1, Math.round(w0 * scale));
+          canvas.height = Math.max(1, Math.round(h0 * scale));
+          const ctx_ = canvas.getContext("2d");
+          if(!ctx_){ noLogo_("เบราว์เซอร์ไม่รองรับ"); return; }
+          ctx_.fillStyle = "#ffffff"; ctx_.fillRect(0, 0, canvas.width, canvas.height); ctx_.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const b64 = canvas.toDataURL("image/jpeg", 0.7).split(",")[1];
+          try { URL.revokeObjectURL(logoObjUrl_); } catch(e2){}
+          if(!b64){ noLogo_("แปลงรูปไม่ได้"); return; }
+          doRegister(b64);
+        } catch(err){ noLogo_(err && err.message ? err.message : "ผิดพลาด"); }
       };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(logoFile);
+      img.onerror = function(){ noLogo_("เปิดไฟล์รูปไม่ได้"); };
+      img.src = logoObjUrl_;
+    } catch(err){ noLogo_(err && err.message ? err.message : "ผิดพลาด"); }
   } else {
     doRegister("");
   }
