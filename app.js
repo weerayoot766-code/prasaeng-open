@@ -1475,10 +1475,17 @@ function renderOrders_(force){
     prevEl = el;
     if(force || el.dataset.sig !== sig){
       el.dataset.sig = sig;
-      el.innerHTML = orderCardHtml_(o);
-      const st = orderStage_(o);
-      if(orderIsExpanded_(o) && st.unpaid){ fillOrderQr_(o.id, o.total); }
-      if(orderMapOpen_[o.id] && orderIsExpanded_(o) && o.riderName && !o.done){ openOrderMap_(o.id); }
+      try {
+        el.innerHTML = orderCardHtml_(o);
+        const st = orderStage_(o);
+        if(orderIsExpanded_(o) && st.unpaid){ fillOrderQr_(o.id, o.total); }
+        if(orderMapOpen_[o.id] && orderIsExpanded_(o) && o.riderName && !o.done){ openOrderMap_(o.id); }
+      } catch(err){
+        // 🆕 การ์ดใบไหนวาดไม่ได้ ห้ามทำให้ทั้งหน้าว่าง — โชว์การ์ดแบบย่อแทน แล้วไปวาดใบอื่นต่อ
+        try { console.error("orderCard error", o && o.id, err); } catch(e2){}
+        el.innerHTML = '<div class="oc-head"><div><div class="oc-id">🧾 ' + escapeHtml(String(o && o.id)) + '</div></div><div class="oc-pill o">' + escapeHtml(String((o && o.status) || "กำลังตรวจสอบ")) + '</div></div>' +
+          '<div class="oc-note">แสดงรายละเอียดไม่ได้ชั่วคราว ลองปิดแอพแล้วเปิดใหม่ หรือทักแชทแอดมินครับ</div>';
+      }
     }
   });
   Array.prototype.slice.call(list.children).forEach(function(el){
