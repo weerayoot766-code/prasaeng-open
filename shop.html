@@ -351,8 +351,59 @@ function copyLineCmd(){
   } catch(e){ alert("กรุณากดค้างที่ช่องข้อความแล้วคัดลอกเอง"); }
 }
 
+
+// 🆕 เตรียมรูปสินค้า: ย่อรูปแบบทนทาน (object URL, พื้นขาว, ไม่ค้าง) — พังเมื่อไหร่ใช้ไฟล์เดิมถ้าไม่ใหญ่เกิน
+function readFileDataUrl_(file){
+  return new Promise(function(resolve, reject){
+    const r = new FileReader();
+    r.onload = function(){ resolve(r.result); };
+    r.onerror = function(){ reject(new Error("อ่านไฟล์ไม่ได้")); };
+    r.readAsDataURL(file);
+  });
+}
+function prepProductImage_(file, maxWidth, quality){
+  return new Promise(function(resolve, reject){
+    let done = false, url = "";
+    function finish(fn, v){ if(done) return; done = true; clearTimeout(tm); try { if(url) URL.revokeObjectURL(url); } catch(e){} fn(v); }
+    async function fallback(why){
+      if(file.size <= 2.5 * 1024 * 1024){
+        try { finish(resolve, await readFileDataUrl_(file)); return; } catch(e){}
+      }
+      finish(reject, new Error(why + " — ลองถ่ายรูปใหม่ หรือเลือกรูปที่เล็กกว่านี้"));
+    }
+    const tm = setTimeout(function(){ if(!done){ fallback("ย่อรูปใช้เวลานานเกินไป"); } }, 20000);
+    try {
+      url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = function(){
+        try {
+          const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          if(!w || !h){ fallback("อ่านรูปไม่ได้"); return; }
+          const scale = Math.min(1, maxWidth / w);
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(w * scale));
+          canvas.height = Math.max(1, Math.round(h * scale));
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const out = canvas.toDataURL("image/jpeg", quality);
+          if(!out || out.length < 200 || out.indexOf("data:image/jpeg") !== 0){ fallback("ย่อรูปไม่สำเร็จ"); return; }
+          finish(resolve, out);
+        } catch(e){ fallback("ย่อรูปไม่สำเร็จ"); }
+      };
+      img.onerror = function(){ fallback("เครื่องอ่านรูปนี้ไม่ได้"); };
+      img.src = url;
+    } catch(e){ fallback("เปิดรูปไม่ได้"); }
+  });
+}
+function withTimeout_(p, ms, msg){
+  return new Promise(function(resolve, reject){
+    const t = setTimeout(function(){ reject(new Error(msg)); }, ms);
+    p.then(function(v){ clearTimeout(t); resolve(v); }, function(e){ clearTimeout(t); reject(e); });
+  });
+}
 let isSubmittingProduct = false;
-function submitNewProduct(){
+async function submitNewProduct(ev){
   if(isSubmittingProduct) return;
   const category = document.getElementById("productCategory").value;
   const name = document.getElementById("productName").value;
@@ -364,41 +415,35 @@ function submitNewProduct(){
   if(price === ""){ alert("กรุณากรอกราคา"); return; }
   if(!file){ alert("กรุณาเลือกรูปสินค้า"); return; }
   isSubmittingProduct = true;
-
-  const reader = new FileReader();
-  reader.onload = function(e){
-    const img = new Image();
-    img.onload = async function(){
-      const canvas = document.createElement("canvas");
-      const maxWidth = 600;
-      const scale = maxWidth / img.width;
-      canvas.width = maxWidth;
-      canvas.height = img.height * scale;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const image = canvas.toDataURL("image/jpeg", 0.6);
-
-      try {
-        const sp = await apiPost('submitProduct', {
-          data: { shop: currentStoreName, category: category, name: name, price: price, image: image, description: description }
-        });
-        if(sp && sp.imageOk === false){
-          alert("บันทึกเมนูแล้ว ⚠️ แต่รูปอัปโหลดไม่สำเร็จ\nกรุณากด ✏️ แก้ไข ที่เมนูนี้ แล้วอัปรูปใหม่อีกครั้ง");
-        } else {
-          alert("ส่งเมนูแล้ว ✅ รอแอดมินอนุมัติ");
-        }
-        loadDashboard();
-      } catch(error){
-        alert("ส่งเมนูไม่สำเร็จ: " + error.message);
-      } finally {
-        isSubmittingProduct = false;
-      }
-    };
-    img.onerror = function(){ isSubmittingProduct = false; alert("อ่านรูปไม่ได้ ลองเลือกรูปอื่น"); };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  const btn = (ev && ev.target) || document.querySelector('button[onclick="submitNewProduct()"]');
+  const oldTxt = btn ? btn.textContent : "";
+  function setBtn(t, dis){ if(btn){ btn.textContent = t; btn.disabled = !!dis; } }
+  setBtn("⏳ กำลังเตรียมรูป...", true);
+  let sent = false;
+  try {
+    const image = await prepProductImage_(file, 600, 0.6);
+    setBtn("⏳ กำลังส่งเมนู...", true);
+    sent = true;
+    const sp = await withTimeout_(apiPost('submitProduct', {
+      data: { shop: currentStoreName, category: category, name: name, price: price, image: image, description: description }
+    }), 90000, "TIMEOUT");
+    if(sp && sp.imageOk === false){
+      alert("บันทึกเมนูแล้ว ⚠️ แต่รูปอัปโหลดไม่สำเร็จ\nกรุณากด ✏️ แก้ไข ที่เมนูนี้ แล้วอัปรูปใหม่อีกครั้ง");
+    } else {
+      alert("ส่งเมนูแล้ว ✅ รอแอดมินอนุมัติ");
+    }
+    loadDashboard();
+  } catch(error){
+    if(sent && (error.message === "TIMEOUT" || /failed to fetch|load failed|networkerror/i.test(error.message))){
+      alert("เน็ตช้า ยังไม่รู้ผลการส่ง ⚠️\nอย่าเพิ่งกดส่งซ้ำ — รอสักครู่แล้วดูในรายการเมนูของร้านว่ามีเมนูนี้ขึ้นหรือยัง\nถ้ายังไม่มี ค่อยส่งใหม่อีกครั้ง");
+      try { loadDashboard(); } catch(e){}
+    } else {
+      alert("ส่งเมนูไม่สำเร็จ: " + error.message);
+    }
+  } finally {
+    isSubmittingProduct = false;
+    setBtn(oldTxt || "ส่งเมนูให้แอดมินตรวจ", false);
+  }
 }
 
 function renderMyProducts(products){
@@ -523,23 +568,13 @@ function saveEditedProduct(rowIndex){
   }
 
   if(file){
-    const reader = new FileReader();
-    reader.onload = function(e){
-      const img = new Image();
-      img.onload = function(){
-        const canvas = document.createElement("canvas");
-        const maxWidth = 600;
-        const scale = maxWidth / img.width;
-        canvas.width = maxWidth;
-        canvas.height = img.height * scale;
-        const ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        doSave(canvas.toDataURL("image/jpeg", 0.6));
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+    if(window.__editSaving){ return; }
+    window.__editSaving = true;
+    prepProductImage_(file, 600, 0.6).then(function(b64){
+      return withTimeout_(doSave(b64), 90000, "ใช้เวลานานเกินไป ลองตรวจรายการเมนูแล้วค่อยบันทึกใหม่");
+    }).catch(function(e){
+      alert("บันทึกไม่สำเร็จ: " + e.message);
+    }).then(function(){ window.__editSaving = false; });
   } else {
     doSave("");
   }
