@@ -1047,6 +1047,62 @@ function getLocation(){
 }
 
 let orderPickMap_ = null;
+
+// ============================================================
+// 🆕 ช่องค้นหาสถานที่ในแผนที่ปักหมุด (พิมพ์ชื่อหมู่บ้าน/ตำบล/วัด/โรงเรียน/ร้านใกล้บ้าน แล้วแผนที่เลื่อนไปให้)
+// ใช้ Nominatim (OpenStreetMap) ค้นเฉพาะในไทย กดปุ่มค้นหาเท่านั้น (ไม่ค้นทุกตัวอักษร) ไม่ต้องใช้ API key
+// ============================================================
+function mapSearchBarHtml_(p){
+  return '<div style="padding:6px 12px 8px;position:relative;">' +
+    '<div style="display:flex;gap:6px;">' +
+    '<input id="' + p + 'Q" type="search" placeholder="🔎 พิมพ์ชื่อหมู่บ้าน / ตำบล / วัด / โรงเรียนใกล้บ้าน" style="flex:1 1 0;width:auto;min-width:0;padding:10px 12px;border:1.5px solid #ddd;border-radius:10px;font-size:15px;box-sizing:border-box;">' +
+    '<button type="button" id="' + p + 'Go" style="flex:0 0 auto;width:auto;padding:10px 16px;border:0;border-radius:10px;background:#d6336c;color:#fff;font-weight:bold;font-size:15px;">ค้นหา</button></div>' +
+    '<div id="' + p + 'Res" style="display:none;position:absolute;left:12px;right:12px;top:100%;z-index:2000;background:#fff;border:1px solid #ddd;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.2);max-height:42vh;overflow:auto;"></div></div>';
+}
+function bindMapSearch_(p, getMap){
+  const q = document.getElementById(p + "Q"), go = document.getElementById(p + "Go"), res = document.getElementById(p + "Res");
+  if(!q || !go || !res) return;
+  let busy = false;
+  function show(html){ res.innerHTML = html; res.style.display = html ? "block" : "none"; }
+  function esc_(t){ return String(t).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function run(){
+    const text = q.value.trim();
+    if(text.length < 2){ show('<div style="padding:12px;color:#c0392b;">พิมพ์ชื่อสถานที่อย่างน้อย 2 ตัวอักษร</div>'); return; }
+    if(busy) return;
+    busy = true; go.textContent = "⏳"; show('<div style="padding:12px;color:#888;">กำลังค้นหา...</div>');
+    // เอียงผลลัพธ์ไปทางพื้นที่ให้บริการ (รอบร้าน ~40 กม.) แต่ไม่บังคับ
+    const dLat = 0.36, dLng = 0.36 / Math.max(0.2, Math.cos(shopLat * Math.PI / 180));
+    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&accept-language=th&countrycodes=th&addressdetails=0" +
+      "&viewbox=" + [shopLng - dLng, shopLat + dLat, shopLng + dLng, shopLat - dLat].join(",") +
+      "&q=" + encodeURIComponent(text);
+    const ctl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+    const timer = setTimeout(function(){ if(ctl) ctl.abort(); }, 12000);
+    fetch(url, ctl ? { signal: ctl.signal } : undefined)
+      .then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(list){
+        if(!list || !list.length){
+          show('<div style="padding:12px;color:#c0392b;">ไม่พบ "' + esc_(text) + '"<br><small style="color:#888;">ลองพิมพ์ชื่อหมู่บ้าน ตำบล วัด หรือโรงเรียนที่อยู่ใกล้บ้านแทน แล้วค่อยเลื่อนหมุดเอง</small></div>');
+          return;
+        }
+        show(list.map(function(it, i){
+          return '<div data-i="' + i + '" style="padding:10px 12px;border-bottom:1px solid #eee;cursor:pointer;font-size:14px;line-height:1.4;">📍 ' + esc_(it.display_name) + '</div>';
+        }).join(""));
+        Array.prototype.forEach.call(res.querySelectorAll("[data-i]"), function(el){
+          el.onclick = function(){
+            const it = list[Number(el.getAttribute("data-i"))];
+            const m = getMap();
+            if(m && it){ m.setView([Number(it.lat), Number(it.lon)], 17); }
+            show(""); q.blur();
+          };
+        });
+      })
+      .catch(function(){ show('<div style="padding:12px;color:#c0392b;">ค้นหาไม่สำเร็จ (เน็ตช้าหรือระบบค้นหาไม่ตอบ)<br><small style="color:#888;">ลองใหม่อีกครั้ง หรือเลื่อนแผนที่หาบ้านเองได้เลยครับ</small></div>'); })
+      .then(function(){ clearTimeout(timer); busy = false; go.textContent = "ค้นหา"; });
+  }
+  go.onclick = run;
+  q.onkeydown = function(e){ if(e.key === "Enter"){ e.preventDefault(); run(); } };
+}
+
 let orderPickStart_ = null;
 let orderPickMoved_ = false;
 function openOrderMapPicker_(why){
@@ -1064,12 +1120,14 @@ function openOrderMapPicker_(why){
     ov.innerHTML =
       '<div id="orderMapWhy" style="padding:10px 12px;background:#fff3cd;font-size:14px;"></div>' +
       '<div id="orderMapInfo" style="padding:6px 12px;font-size:14px;color:#555;">👆 เลื่อนแผนที่ให้ <b>หมุดตรงกลาง</b> อยู่ที่บ้าน/จุดรับของ แล้วกดยืนยัน</div>' +
+      mapSearchBarHtml_("omS") +
       '<div style="position:relative;flex:1;"><div id="orderMapBox" style="position:absolute;inset:0;"></div>' +
       '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);font-size:34px;z-index:1000;pointer-events:none;">📍</div></div>' +
       '<div style="display:flex;gap:8px;padding:10px;">' +
       '<button id="orderMapCancel" style="flex:1;padding:12px;border:0;border-radius:10px;background:#ddd;">ยกเลิก</button>' +
       '<button id="orderMapOk" style="flex:2;padding:12px;border:0;border-radius:10px;background:#d6336c;color:#fff;font-weight:bold;">✅ ยืนยันตำแหน่งนี้</button></div>';
     document.body.appendChild(ov);
+    bindMapSearch_("omS", function(){ return orderPickMap_; });
     document.getElementById("orderMapCancel").onclick = function(){ ov.style.display = "none"; };
     document.getElementById("orderMapOk").onclick = function(){
       if(!orderPickMoved_){ alert("กรุณาเลื่อนแผนที่ให้หมุด 📍 อยู่ตรงบ้าน/จุดรับของก่อน แล้วค่อยกดยืนยัน"); return; }
@@ -1089,7 +1147,7 @@ function openOrderMapPicker_(why){
   okBtn.style.opacity = "0.45";
   document.getElementById("orderMapInfo").innerHTML = "👆 เลื่อนแผนที่ให้ <b>หมุดตรงกลาง</b> อยู่ที่บ้าน/จุดรับของ แล้วกดยืนยัน";
   if(!orderPickMap_){
-    orderPickMap_ = L.map("orderMapBox").setView(start, 16);
+    orderPickMap_ = L.map("orderMapBox").setView(start, (lat && lng) ? 16 : 14);
     // 🆕 สลับได้ 2 แบบ: ภาพดาวเทียม+ชื่อสถานที่ (เห็นหลังคาบ้าน/ร้าน) กับแผนที่ถนน — เริ่มที่ดาวเทียม
     const esri = "https://server.arcgisonline.com/ArcGIS/rest/services/";
     const sat = L.layerGroup([
@@ -1100,7 +1158,7 @@ function openOrderMapPicker_(why){
     sat.addTo(orderPickMap_);
     L.control.layers({ "🛰️ ดาวเทียม": sat, "🗺️ ถนน": street }, null, { position: "topright", collapsed: false }).addTo(orderPickMap_);
   } else {
-    orderPickMap_.setView(start, 16);
+    orderPickMap_.setView(start, (lat && lng) ? 16 : 14);
   }
   if(!orderPickMap_._pdBound){
     orderPickMap_._pdBound = true;
@@ -2082,6 +2140,7 @@ function pickOnMap_(opts){
       '<div id="gpWhy" style="padding:10px 12px;background:#fff3cd;font-size:14px;"></div>' +
       '<div id="gpTitle" style="padding:8px 12px 2px;font-weight:700;font-size:16px;"></div>' +
       '<div id="gpInfo" style="padding:2px 12px 6px;font-size:14px;color:#555;">👆 เลื่อนแผนที่ให้ <b>หมุด 📍 กลางจอ</b> อยู่ตรงจุดที่ต้องการ แล้วกดยืนยัน</div>' +
+      mapSearchBarHtml_("gpS") +
       '<div style="position:relative;flex:1;"><div id="gpBox" style="position:absolute;inset:0;"></div>' +
       '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);font-size:36px;z-index:1000;pointer-events:none;">📍</div></div>' +
       '<div style="display:flex;gap:8px;padding:10px;">' +
@@ -2089,6 +2148,7 @@ function pickOnMap_(opts){
       '<button type="button" id="gpGps" style="flex:1.3;padding:12px;border:0;border-radius:10px;background:#e8f0ff;color:#1a56c4;">📡 ตำแหน่งฉัน</button>' +
       '<button type="button" id="gpOk" style="flex:2;padding:12px;border:0;border-radius:10px;background:#d6336c;color:#fff;font-weight:bold;">✅ ยืนยันตำแหน่งนี้</button></div>';
     document.body.appendChild(ov);
+    bindMapSearch_("gpS", function(){ return gpMap_; });
     document.getElementById("gpCancel").onclick = function(){ ov.style.display = "none"; };
     document.getElementById("gpGps").onclick = function(){
       if(!navigator.geolocation){ alert("เครื่องนี้ใช้ GPS ไม่ได้ ให้เลื่อนแผนที่เลือกเองได้เลย"); return; }
