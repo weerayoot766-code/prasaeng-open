@@ -74,6 +74,33 @@ window.addEventListener("error", function(ev){
 
 let currentPin = "";
 let currentStoreName = "";
+// 🆕 หมวดสินค้า: ร้านทั่วไปใช้ชุดเดิม / ร้านฝากหิ้วเซเว่นใช้ชุดหมวดแบบในเซเว่น (ค่าที่เก็บเป็นข้อความธรรมดา ไม่มีอีโมจิ)
+const CATS_GENERAL = ["อาหาร","เครื่องดื่ม","ของใช้ในบ้าน","ยาและสุขภาพ","ขนม","อาหารสด","ไข่ไก่","อุปกรณ์ไอที","เครื่องสำอาง","อื่นๆ"];
+const CATS_SEVEN = [
+  ["🍱","ข้าวกล่อง/อาหารพร้อมทาน"],["🥪","แซนด์วิช/เบเกอรี่"],["🍞","ขนมปัง"],["🌭","ของทอด/ไส้กรอก/เคาน์เตอร์ร้อน"],
+  ["🍜","บะหมี่/โจ๊ก/อาหารสำเร็จรูป"],["🍿","ขนมขบเคี้ยว"],["🍫","ช็อกโกแลต/ลูกอม/หมากฝรั่ง"],["🍦","ไอศกรีม"],
+  ["🧊","อาหารแช่แข็ง"],["🥛","นม/โยเกิร์ต"],["🥤","น้ำอัดลม/น้ำหวาน"],["💧","น้ำดื่ม/น้ำแร่"],
+  ["🧃","ชา/กาแฟ/เครื่องดื่มชูกำลัง"],["☕","เครื่องดื่มชงสด"],["🥚","ไข่/ของสด"],
+  ["🧴","ของใช้ส่วนตัว (สบู่ แชมพู ยาสีฟัน)"],["🧼","ผลิตภัณฑ์ซักล้าง/ทำความสะอาด"],["🧻","ทิชชู/ผ้าอนามัย/ผ้าอ้อม"],
+  ["💊","ยาสามัญประจำบ้าน/สุขภาพ"],["💄","เครื่องสำอาง/ความงาม"],["👶","ของใช้เด็ก"],["🐶","อาหารสัตว์เลี้ยง"],
+  ["✏️","เครื่องเขียน/อุปกรณ์สำนักงาน"],["🔌","อุปกรณ์ไอที/ถ่านไฟฉาย/สายชาร์จ"],["🧰","ของใช้ในบ้าน"],["🎁","อื่นๆ"]
+];
+function isSevenShop_(name){ return /เซเว่น|7[\s-]?eleven/i.test(String(name || "")); }
+/** สร้างตัวเลือกหมวด (selected = ค่าปัจจุบัน — ถ้าเป็นหมวดเก่าที่ไม่อยู่ในลิสต์ จะเพิ่มให้เลือกคงไว้ได้) */
+function categoryOptionsHtml_(shopName, selected, withPlaceholder){
+  let h = withPlaceholder ? '<option value="">-- เลือกหมวดสินค้า --</option>' : "";
+  const seven = isSevenShop_(shopName);
+  const list = seven ? CATS_SEVEN : CATS_GENERAL.map(function(c){ return ["", c]; });
+  let found = false;
+  list.forEach(function(it){
+    const v = it[1], isSel = (selected && v === selected);
+    if(isSel) found = true;
+    h += '<option value="' + escapeHtml(v) + '"' + (isSel ? ' selected' : '') + '>' + (it[0] ? it[0] + ' ' : '') + escapeHtml(v) + '</option>';
+  });
+  if(selected && !found){ h += '<option value="' + escapeHtml(selected) + '" selected>' + escapeHtml(selected) + ' (หมวดเดิม)</option>'; }
+  return h;
+}
+
 let myProductsCache = {};
 
 function loadHome(){
@@ -206,19 +233,7 @@ function renderDashboard(result){
   html += '</div>';
 
   html += '<div class="card"><h2>➕ เพิ่มเมนู/สินค้าใหม่</h2>';
-  html += '<select id="productCategory">';
-  html += '<option value="">-- เลือกหมวดสินค้า --</option>';
-  html += '<option value="อาหาร">อาหาร</option>';
-  html += '<option value="เครื่องดื่ม">เครื่องดื่ม</option>';
-  html += '<option value="ของใช้ในบ้าน">ของใช้ในบ้าน</option>';
-  html += '<option value="ยาและสุขภาพ">ยาและสุขภาพ</option>';
-  html += '<option value="ขนม">ขนม</option>';
-  html += '<option value="อาหารสด">อาหารสด</option>';
-  html += '<option value="ไข่ไก่">ไข่ไก่</option>';
-  html += '<option value="อุปกรณ์ไอที">อุปกรณ์ไอที</option>';
-  html += '<option value="เครื่องสำอาง">เครื่องสำอาง</option>';
-  html += '<option value="อื่นๆ">อื่นๆ</option>';
-  html += '</select>';
+  html += '<select id="productCategory">' + categoryOptionsHtml_(currentStoreName, "", true) + '</select>';
   html += '<input id="productName" placeholder="ชื่อสินค้า เช่น ข้าวกะเพราไก่">';
   html += '<input id="productPrice" type="number" placeholder="ราคา เช่น 50">';
   html += '<input type="file" id="productImageFile" accept="image/*">';
@@ -226,7 +241,13 @@ function renderDashboard(result){
   html += '<button onclick="submitNewProduct()">ส่งเมนูให้แอดมินตรวจ</button>';
   html += '</div>';
 
-  html += '<div class="card"><h2>📋 สินค้าของร้านฉัน</h2><div id="myProductList"></div></div>';
+  html += '<div class="card"><h2>📋 สินค้าของร้านฉัน</h2>' +
+    '<div style="display:flex;gap:8px;align-items:stretch;margin-bottom:6px;">' +
+      '<input id="prodSearch" type="search" placeholder="🔎 ค้นหาสินค้า (ชื่อ / หมวด)" style="flex:1 1 0;width:auto;min-width:0;margin:0;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();applyProductSearch_();}" oninput="applyProductSearch_()">' +
+      '<button type="button" onclick="applyProductSearch_()" style="flex:0 0 auto;width:auto;margin:0;padding:0 18px;">ค้นหา</button>' +
+      '<button type="button" onclick="clearProductSearch_()" style="flex:0 0 auto;width:auto;margin:0;padding:0 14px;background:#999;">ล้าง</button>' +
+    '</div><div id="prodSearchInfo" style="font-size:13px;color:#888;margin:0 2px 8px;"></div>' +
+    '<div id="myProductList"></div></div>';
 
   document.getElementById("app").innerHTML = html;
   renderMyProducts(result.products);
@@ -446,6 +467,25 @@ async function submitNewProduct(ev){
   }
 }
 
+/** 🆕 ค้นหาสินค้าของร้านฉัน (กรองในหน้าจอ ไม่ยิงเซิร์ฟเวอร์) — ตรงกับชื่อ หมวด หรือรายละเอียด */
+function applyProductSearch_(){
+  const inp = document.getElementById("prodSearch"), info = document.getElementById("prodSearchInfo");
+  if(!inp) return;
+  const q = inp.value.trim().toLowerCase();
+  let shown = 0, total = 0;
+  Object.keys(myProductsCache).forEach(function(k){
+    const p = myProductsCache[k], row = document.getElementById("prodRow_" + p.rowIndex);
+    if(!row) return;
+    total++;
+    const hay = (String(p.name || "") + " " + String(p.category || "") + " " + String(p.description || "")).toLowerCase();
+    const ok = !q || hay.indexOf(q) >= 0;
+    row.style.display = ok ? "" : "none";
+    if(ok) shown++;
+  });
+  if(info){ info.textContent = q ? (shown ? ('พบ ' + shown + ' จาก ' + total + ' รายการ') : ('ไม่พบสินค้าที่ตรงกับ "' + inp.value.trim() + '"')) : ''; }
+}
+function clearProductSearch_(){ const inp = document.getElementById("prodSearch"); if(inp){ inp.value = ""; applyProductSearch_(); inp.focus(); } }
+
 function renderMyProducts(products){
   const box = document.getElementById("myProductList");
 
@@ -477,6 +517,7 @@ function renderMyProducts(products){
       '</div>';
   });
   box.innerHTML = html;
+  try { applyProductSearch_(); } catch(e){}
 }
 
 /** 🆕 สลับสถานะสินค้าหมดชั่วคราว/มีสินค้า ทีละชิ้น */
@@ -521,18 +562,7 @@ function startEditProduct(rowIndex){
     '<div style="width:100%;">' +
       '<input id="editName_' + rowIndex + '" value="' + escapeHtml(p.name) + '" placeholder="ชื่อสินค้า">' +
       '<input id="editPrice_' + rowIndex + '" type="number" value="' + Number(p.price) + '" placeholder="ราคา">' +
-      '<select id="editCategory_' + rowIndex + '">' +
-        '<option value="อาหาร">อาหาร</option>' +
-        '<option value="เครื่องดื่ม">เครื่องดื่ม</option>' +
-        '<option value="ของใช้ในบ้าน">ของใช้ในบ้าน</option>' +
-        '<option value="ยาและสุขภาพ">ยาและสุขภาพ</option>' +
-        '<option value="ขนม">ขนม</option>' +
-        '<option value="อาหารสด">อาหารสด</option>' +
-        '<option value="ไข่ไก่">ไข่ไก่</option>' +
-        '<option value="อุปกรณ์ไอที">อุปกรณ์ไอที</option>' +
-        '<option value="เครื่องสำอาง">เครื่องสำอาง</option>' +
-        '<option value="อื่นๆ">อื่นๆ</option>' +
-      '</select>' +
+      '<select id="editCategory_' + rowIndex + '">' + categoryOptionsHtml_(p.shop || currentStoreName, p.category || "", false) + '</select>' +
       '<input id="editDescription_' + rowIndex + '" value="' + escapeHtml(p.description || "") + '" placeholder="รายละเอียดสินค้า">' +
       '<input type="file" id="editImageFile_' + rowIndex + '" accept="image/*">' +
       '<p style="font-size:12px;color:#888;">(ไม่เลือกไฟล์ = ใช้รูปเดิม)</p>' +
@@ -540,7 +570,6 @@ function startEditProduct(rowIndex){
       '<button onclick="loadDashboard()" style="background:#999;">ยกเลิก</button>' +
     '</div>';
 
-  document.getElementById("editCategory_" + rowIndex).value = p.category || "";
 }
 
 function saveEditedProduct(rowIndex){

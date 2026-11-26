@@ -787,6 +787,8 @@ function renderHomeRecommendedGrid(){
 
 // 🆕 ร้านที่ให้แสดงปุ่มแยกหมวดสินค้าในร้าน (เพิ่มชื่อร้านในลิสต์นี้ได้ ต้องตรงกับชื่อร้านในชีตทุกตัวอักษร)
 const CATEGORY_TABS_SHOPS = ["รับหิ้วเซเว่น"];
+// 🆕 ลำดับปุ่มหมวดของร้านเซเว่น (หมวดที่ไม่อยู่ในลิสต์ เช่นหมวดเก่า จะต่อท้าย)
+const SEVEN_CAT_ORDER = ["ข้าวกล่อง/อาหารพร้อมทาน","แซนด์วิช/เบเกอรี่","ขนมปัง","ของทอด/ไส้กรอก/เคาน์เตอร์ร้อน","บะหมี่/โจ๊ก/อาหารสำเร็จรูป","ขนมขบเคี้ยว","ช็อกโกแลต/ลูกอม/หมากฝรั่ง","ไอศกรีม","อาหารแช่แข็ง","นม/โยเกิร์ต","น้ำอัดลม/น้ำหวาน","น้ำดื่ม/น้ำแร่","ชา/กาแฟ/เครื่องดื่มชูกำลัง","เครื่องดื่มชงสด","ไข่/ของสด","ของใช้ส่วนตัว (สบู่ แชมพู ยาสีฟัน)","ผลิตภัณฑ์ซักล้าง/ทำความสะอาด","ทิชชู/ผ้าอนามัย/ผ้าอ้อม","ยาสามัญประจำบ้าน/สุขภาพ","เครื่องสำอาง/ความงาม","ของใช้เด็ก","อาหารสัตว์เลี้ยง","เครื่องเขียน/อุปกรณ์สำนักงาน","อุปกรณ์ไอที/ถ่านไฟฉาย/สายชาร์จ","ของใช้ในบ้าน","อื่นๆ"];
 
 window.filterShopCategory_ = function(cat){
   document.querySelectorAll("#productList .cat-chip").forEach(function(b){
@@ -836,6 +838,10 @@ function showProductsByShop(shopName, isRestore){
     const cats = [];
     window.productsData.forEach(function(p){
       if(String(p.shop || "") === shopName){ const c = String(p.category || "").trim(); if(c && cats.indexOf(c) < 0){ cats.push(c); } }
+    });
+    cats.sort(function(a, b){
+      const ia = SEVEN_CAT_ORDER.indexOf(a), ib = SEVEN_CAT_ORDER.indexOf(b);
+      return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
     });
     if(cats.length > 1){
       html += '<div class="cat-chips"><button type="button" class="cat-chip active" data-cat="" onclick="filterShopCategory_(\'\')">ทั้งหมด</button>';
