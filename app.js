@@ -790,13 +790,21 @@ const CATEGORY_TABS_SHOPS = ["รับหิ้วเซเว่น"];
 // 🆕 ลำดับปุ่มหมวดของร้านเซเว่น (หมวดที่ไม่อยู่ในลิสต์ เช่นหมวดเก่า จะต่อท้าย)
 const SEVEN_CAT_ORDER = ["ข้าวกล่อง/อาหารพร้อมทาน","แซนด์วิช/เบเกอรี่","ขนมปัง","ของทอด/ไส้กรอก/เคาน์เตอร์ร้อน","บะหมี่/โจ๊ก/อาหารสำเร็จรูป","ขนมขบเคี้ยว","ช็อกโกแลต/ลูกอม/หมากฝรั่ง","ไอศกรีม","อาหารแช่แข็ง","นม/โยเกิร์ต","น้ำอัดลม/น้ำหวาน","น้ำดื่ม/น้ำแร่","ชา/กาแฟ/เครื่องดื่มชูกำลัง","เครื่องดื่มชงสด","ไข่/ของสด","ของใช้ส่วนตัว (สบู่ แชมพู ยาสีฟัน)","ผลิตภัณฑ์ซักล้าง/ทำความสะอาด","ทิชชู/ผ้าอนามัย/ผ้าอ้อม","ยาสามัญประจำบ้าน/สุขภาพ","เครื่องสำอาง/ความงาม","ของใช้เด็ก","อาหารสัตว์เลี้ยง","เครื่องเขียน/อุปกรณ์สำนักงาน","อุปกรณ์ไอที/ถ่านไฟฉาย/สายชาร์จ","ของใช้ในบ้าน","อื่นๆ"];
 
+const SEVEN_CAT_ICON = ["🍱","🥪","🍞","🌭","🍜","🍿","🍫","🍦","🧊","🥛","🥤","💧","🧃","☕","🥚","🧴","🧼","🧻","💊","💄","👶","🐶","✏️","🔌","🧰","🎁"];
 window.filterShopCategory_ = function(cat){
   document.querySelectorAll("#productList .cat-chip").forEach(function(b){
-    b.classList.toggle("active", b.getAttribute("data-cat") === cat);
+    const on = b.getAttribute("data-cat") === cat;
+    b.classList.toggle("active", on);
+    if(on){ try { b.scrollIntoView({ inline: "center", block: "nearest" }); } catch(e){} } // เลื่อนแถบให้เห็นหมวดที่เลือก
   });
+  let shown = 0;
   document.querySelectorAll("#productList .product-card").forEach(function(c){
-    c.style.display = (cat === "" || c.getAttribute("data-cat") === cat) ? "" : "none";
+    const ok = (cat === "" || c.getAttribute("data-cat") === cat);
+    c.style.display = ok ? "" : "none";
+    if(ok){ shown++; }
   });
+  const em = document.getElementById("catEmptyMsg"); // 🆕 หมวดที่ยังไม่มีสินค้า
+  if(em){ em.style.display = shown === 0 ? "block" : "none"; em.textContent = shown === 0 ? ("หมวด \"" + cat + "\" ยังไม่มีสินค้าในตอนนี้ครับ ลองดูหมวดอื่น หรือฝากหิ้วสินค้าที่ต้องการกับร้านได้เลย") : ""; }
 };
 
 function showProductsByShop(shopName, isRestore){
@@ -843,10 +851,22 @@ function showProductsByShop(shopName, isRestore){
       const ia = SEVEN_CAT_ORDER.indexOf(a), ib = SEVEN_CAT_ORDER.indexOf(b);
       return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
     });
-    if(cats.length > 1){
+    const isSeven = /เซเว่น|7[\s-]?eleven/i.test(shopName);
+    if(isSeven){
+      // 🆕 ร้านเซเว่น: โชว์ปุ่มครบทุกหมวดแบบในเซเว่น (หมวดที่ยังไม่มีสินค้าจะจาง) + หมวดเก่าที่มีสินค้าต่อท้าย เรียงเป็น 2 แถว ปัดซ้ายขวาได้
+      const extra = cats.filter(function(c){ return SEVEN_CAT_ORDER.indexOf(c) < 0; });
+      const has = {}; cats.forEach(function(c){ has[c] = true; });
+      html += '<div class="cat-chips" style="display:grid;grid-template-rows:repeat(2,auto);grid-auto-flow:column;grid-auto-columns:max-content;justify-items:start;gap:8px;overflow-x:auto;">' +
+        '<button type="button" class="cat-chip active" data-cat="" onclick="filterShopCategory_(\'\')">ทั้งหมด</button>';
+      SEVEN_CAT_ORDER.concat(extra).forEach(function(c, i){
+        const icon = SEVEN_CAT_ICON[i] ? SEVEN_CAT_ICON[i] + " " : "";
+        html += '<button type="button" class="cat-chip" data-cat="' + escapeHtml(c) + '"' + (has[c] ? '' : ' style="opacity:.5"') + ' onclick="filterShopCategory_(this.getAttribute(\'data-cat\'))">' + icon + escapeHtml(c) + '</button>';
+      });
+      html += '</div><div id="catEmptyMsg" style="display:none;margin:8px 4px;padding:12px;border-radius:12px;background:#fff3cd;color:#7a5b00;font-size:14px;"></div>';
+    } else if(cats.length > 1){
       html += '<div class="cat-chips"><button type="button" class="cat-chip active" data-cat="" onclick="filterShopCategory_(\'\')">ทั้งหมด</button>';
       cats.forEach(function(c){ html += '<button type="button" class="cat-chip" data-cat="' + escapeHtml(c) + '" onclick="filterShopCategory_(this.getAttribute(\'data-cat\'))">' + escapeHtml(c) + '</button>'; });
-      html += '</div>';
+      html += '</div><div id="catEmptyMsg" style="display:none;margin:8px 4px;padding:12px;border-radius:12px;background:#fff3cd;color:#7a5b00;font-size:14px;"></div>';
     }
   }
   html += '<div class="products-grid">';
