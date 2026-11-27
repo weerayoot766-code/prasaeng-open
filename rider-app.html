@@ -122,6 +122,18 @@ button{font-family:inherit}
 .install-help{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:center;justify-content:center;padding:18px}
 .install-help-box{background:#fff;border-radius:22px;padding:20px;max-width:420px;width:100%;font-size:18px;line-height:1.6}
 .install-help-box h3{margin:0 0 8px;color:var(--g7);font-size:22px}.install-help-box ol{padding-left:22px;margin:8px 0}.install-help-box .ic{background:var(--g1);border-radius:8px;padding:1px 8px;font-weight:700}
+
+/* ⏸ พักรับออเดอร์ */
+.pausebtn{margin-top:12px;width:100%;border:0;border-radius:16px;padding:12px 14px;font-family:inherit;font-weight:800;font-size:18px;background:rgba(255,255,255,.95);color:var(--g7);box-shadow:0 4px 0 rgba(0,0,0,.18);cursor:pointer}
+.pausebtn.on{background:#FFF4D6;color:#8a5a00;font-size:16px;line-height:1.35}
+.pausebtn.on b{color:#b91c1c}
+.pz-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;display:none;align-items:flex-end;justify-content:center}
+.pz-ov.on{display:flex}
+.pz-box{background:#fff;width:100%;max-width:520px;border-radius:26px 26px 0 0;padding:20px 18px calc(env(safe-area-inset-bottom) + 20px)}
+.pz-box h3{margin:0 0 4px;font-size:24px;color:var(--g7)}.pz-box p{margin:0 0 12px;font-size:16px;color:var(--mut);line-height:1.5}
+.pz-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pz-opt{border:0;border-radius:16px;padding:16px 8px;font-family:inherit;font-weight:800;font-size:21px;background:var(--g1);color:var(--g7);box-shadow:0 4px 0 var(--g2);cursor:pointer}
+.pz-cancel{margin-top:14px;width:100%;border:0;background:transparent;font-family:inherit;font-size:18px;color:var(--mut);padding:10px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -150,6 +162,7 @@ button{font-family:inherit}
       <div><div class="hi">สวัสดีครับ</div><div class="nm" id="hName">ไรเดอร์</div></div>
       <div class="share hide" id="hShare">📡 แชร์ตำแหน่งอยู่</div>
     </div>
+    <button type="button" class="pausebtn" id="pauseBtn" onclick="openPause()">⏸ พักรับออเดอร์</button>
     <div class="stats">
       <div class="stat"><b id="sCount">0 งาน</b><span>ส่งสำเร็จวันนี้</span></div>
       <div class="stat"><b id="sFee">฿ 0</b><span>ค่าส่งวันนี้</span></div>
@@ -187,6 +200,22 @@ button{font-family:inherit}
   <div id="mapBox"></div>
   <div class="mapfoot"><div class="line mu" id="mpInfo" style="margin:0 0 4px"></div>
     <a class="btn" id="mpNav" target="_blank" rel="noopener" style="margin-top:6px">🧭 นำทางด้วย Google Maps</a></div>
+</div>
+
+<div id="pauseOv" class="pz-ov" onclick="if(event.target===this)closePause()">
+  <div class="pz-box">
+    <h3>⏸ พักรับออเดอร์</h3>
+    <p>ลูกค้าจะสั่งของใหม่ไม่ได้ในช่วงที่พัก<br>งานที่รับไว้แล้วยังทำต่อได้ตามปกติ และเปิดรับเองเมื่อครบเวลา</p>
+    <div class="pz-grid">
+      <button class="pz-opt" onclick="setPause(30)">30 นาที</button>
+      <button class="pz-opt" onclick="setPause(60)">1 ชั่วโมง</button>
+      <button class="pz-opt" onclick="setPause(90)">1.5 ชั่วโมง</button>
+      <button class="pz-opt" onclick="setPause(120)">2 ชั่วโมง</button>
+      <button class="pz-opt" onclick="setPause(180)">3 ชั่วโมง</button>
+      <button class="pz-opt" onclick="setPause(240)">4 ชั่วโมง</button>
+    </div>
+    <button class="pz-cancel" onclick="closePause()">ยกเลิก</button>
+  </div>
 </div>
 
 <div id="installHelp" class="install-help" onclick="if(event.target===this)closeInstallHelp()">
@@ -280,8 +309,45 @@ function logout(){ if(!confirm('ออกจากระบบใช่ไหม
 
 function enterApp(){
   $('login').classList.add('hide'); $('app').classList.remove('hide'); $('nav').classList.remove('hide');
-  startGeo(); refresh(false); loadToday(); startLoops(); keepAwake();
+  startGeo(); refresh(false); loadToday(); startLoops(); keepAwake(); loadPause();
 }
+
+
+/* ---------- ⏸ พักรับออเดอร์ ---------- */
+let PAUSE = null, PAUSE_BUSY = false;
+function pauseActive(){ return PAUSE && PAUSE.paused && (Date.now() + (PAUSE.skew || 0) < PAUSE.until); }
+function renderPause(){
+  const b = $('pauseBtn'); if(!b) return;
+  if(pauseActive()){
+    b.className = 'pausebtn on';
+    b.innerHTML = '⏸ พักรับออเดอร์อยู่ ถึง <b>' + esc(PAUSE.untilText) + ' น.</b><br><span style="font-size:15px">แตะเพื่อเปิดรับตอนนี้ / เปลี่ยนเวลา</span>';
+  } else { b.className = 'pausebtn'; b.textContent = '⏸ พักรับออเดอร์'; }
+}
+async function loadPause(){
+  try {
+    const r = await api('getAppStatus', {});
+    PAUSE = r && r.paused ? { paused: true, until: Number(r.until), untilText: r.untilText, skew: Number(r.serverNow || Date.now()) - Date.now() } : null;
+  } catch(e){}
+  renderPause();
+}
+function openPause(){
+  if(pauseActive()){
+    if(confirm('เปิดรับออเดอร์ตอนนี้เลยไหม?\n(กด ยกเลิก เพื่อเปลี่ยนเวลาพักแทน)')){ setPause(0); return; }
+  }
+  $('pauseOv').classList.add('on');
+}
+function closePause(){ $('pauseOv').classList.remove('on'); }
+async function setPause(min){
+  if(PAUSE_BUSY) return; PAUSE_BUSY = true;
+  try {
+    const r = await call('riderSetPause', { minutes: min });
+    PAUSE = r && r.paused ? { paused: true, until: Number(r.until), untilText: r.untilText, skew: Number(r.serverNow || Date.now()) - Date.now() } : null;
+    renderPause(); closePause();
+    toast(min === 0 ? '▶️ เปิดรับออเดอร์แล้ว' : ('⏸ พักรับออเดอร์ ถึง ' + r.untilText + ' น.'));
+  } catch(e){ toast('❌ ' + (e.message || 'ตั้งไม่สำเร็จ ลองอีกครั้ง')); }
+  PAUSE_BUSY = false;
+}
+setInterval(function(){ if(CR && !document.hidden) loadPause(); else renderPause(); }, 30000);
 
 /* ---------- ดึงงาน ---------- */
 const READY_SEEN = {}; let READY_INIT = false;
