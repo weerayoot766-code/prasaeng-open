@@ -122,7 +122,7 @@ function openQtyModal(index){
   if(product.inStock === false){ alert("สินค้านี้หมดชั่วคราว ขออภัยครับ"); return; }
   const openState = shopCanOrderNow_(String(product.shop || ""));
   if(!openState.canOrder){
-    alert(openState.paused ? "ร้านนี้พักรับออเดอร์ชั่วคราว ขออภัยครับ" : "ตอนนี้ร้านปิดแล้วครับ" + (openState.next ? " (" + openState.next + " น.)" : ""));
+    alert(openState.appPause ? ("ขณะนี้พักรับออเดอร์ชั่วคราว (ไรเดอร์ติดภารกิจ)\nเปิดรับอีกครั้งประมาณ " + openState.untilText + " น. ครับ") : openState.paused ? "ร้านนี้พักรับออเดอร์ชั่วคราว ขออภัยครับ" : "ตอนนี้ร้านปิดแล้วครับ" + (openState.next ? " (" + openState.next + " น.)" : ""));
     return;
   }
   pendingProductIndex = index;
@@ -451,6 +451,41 @@ const CATEGORY_DISPLAY_ORDER = [
 // ข้อมูล: storeInfo.hours = {"0":"","1":"08:00-17:00",...} (0=อาทิตย์) · null = ไม่จำกัดเวลา · storeInfo.isOpen=false = พักร้านชั่วคราว (ชนะเวลา)
 // ตัวตัดสินจริงตอนสั่งอยู่ที่เซิร์ฟเวอร์ (Code.gs) ตรงนี้แค่แสดงผล/กันกดพลาด
 // ============================================================
+// ============================================================
+// ⏸ พักรับออเดอร์ชั่วคราวทั้งระบบ (ไรเดอร์/แอดมินกดพัก) — ดึงสถานะจากเซิร์ฟเวอร์ทุก 1 นาที
+// ปิดปุ่มสั่งทั้งแอพ + แถบสีแดงด้านบน · เซิร์ฟเวอร์ปฏิเสธออเดอร์ตอนพักด้วย (กันหน้าเก่าที่เปิดค้างไว้)
+// ============================================================
+window.APP_PAUSE = null;
+function appPauseNow_(){
+  const p = window.APP_PAUSE;
+  if(!p || !p.paused) return null;
+  if(Date.now() + (p.skew || 0) >= p.until) return null; // ครบเวลาแล้ว → เปิดรับเอง
+  return p;
+}
+function renderPauseBar_(){
+  try {
+    const el = document.getElementById("pauseBar"), hb = document.getElementById("hoursBar");
+    const p = appPauseNow_();
+    if(el){
+      el.style.display = p ? "flex" : "none";
+      const m = document.getElementById("pauseMain");
+      if(m && p){ m.innerHTML = '⏸ <b>พักรับออเดอร์ชั่วคราว</b> — ไรเดอร์ติดภารกิจ เปิดรับอีกครั้งประมาณ <b>' + escapeHtml(p.untilText) + ' น.</b>'; }
+    }
+    if(hb){ hb.style.display = p ? "none" : ""; }
+  } catch(e){}
+}
+async function refreshAppStatus_(){
+  try {
+    const r = await apiGet("getAppStatus", {}, 0);
+    window.APP_PAUSE = (r && r.paused) ? { paused: true, until: Number(r.until), untilText: String(r.untilText || ""), by: String(r.by || ""), skew: Number(r.serverNow || Date.now()) - Date.now() } : null;
+  } catch(e){ /* เน็ตสะดุด → คงสถานะเดิมไว้ */ }
+  renderPauseBar_();
+  try { refreshHoursUI_(); } catch(e){}
+}
+setInterval(function(){ if(!document.hidden){ refreshAppStatus_(); } else { renderPauseBar_(); } }, 60000);
+document.addEventListener("visibilitychange", function(){ if(!document.hidden){ refreshAppStatus_(); } });
+if(document.readyState === "loading"){ document.addEventListener("DOMContentLoaded", refreshAppStatus_); } else { setTimeout(refreshAppStatus_, 0); }
+
 const THAI_DAY_FULL_ = ["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
 const THAI_DAY_SHORT_ = ["อา","จ","อ","พ","พฤ","ศ","ส"];
 
@@ -470,6 +505,8 @@ function hhmm_(min){ min = ((min % 1440) + 1440) % 1440; return ("0" + Math.floo
 
 /** สถานะร้านตอนนี้ → { canOrder, cls: g|o|k|r, pill, line } */
 function shopState_(info){
+  const ap = appPauseNow_(); // ⏸ ไรเดอร์พัก → ปิดรับทั้งระบบ
+  if(ap){ return { canOrder: false, cls: "r", pill: "⏸ พักรับออเดอร์", line: "พักชั่วคราว · เปิดรับอีกครั้งประมาณ " + ap.untilText + " น.", paused: true, appPause: true, untilText: ap.untilText }; }
   if(!info){ return { canOrder: true, cls: "g", pill: "", line: "" }; }
   if(info.isOpen === false){ return { canOrder: false, cls: "r", pill: "🔴 พักร้าน", line: "ร้านปิดชั่วคราว", paused: true }; }
   const h = info.hours;
@@ -547,7 +584,7 @@ function shopHoursCardHtml_(shopName){
   let html = '';
   if(!st.canOrder){
     html += '<div class="hrs-banner">' +
-      (st.paused ? '🔴 ร้านพักรับออเดอร์ชั่วคราว' : '🔴 ตอนนี้ร้านปิดแล้ว' + (st.next ? '<br><span>' + escapeHtml(st.next) + ' น.</span>' : '')) +
+      (st.appPause ? '⏸ พักรับออเดอร์ชั่วคราว<br><span>เปิดรับอีกครั้งประมาณ ' + escapeHtml(st.untilText) + ' น.</span>' : st.paused ? '🔴 ร้านพักรับออเดอร์ชั่วคราว' : '🔴 ตอนนี้ร้านปิดแล้ว' + (st.next ? '<br><span>' + escapeHtml(st.next) + ' น.</span>' : '')) +
       '</div>';
   }
   if(info && info.hours){
@@ -555,7 +592,7 @@ function shopHoursCardHtml_(shopName){
       '<span class="hrs-more" onclick="document.getElementById(\'hrsTable\').classList.toggle(\'show\')">🕘 ดูเวลา ˅</span></div>' +
       '<div id="hrsTable" class="hrs-wrap">' + shopHoursTableHtml_(info) + '</div>';
   }
-  if(!st.canOrder){ html += '<div class="hrs-note">ดูเมนูได้ แต่สั่งได้เฉพาะเวลาที่ร้านเปิด</div>'; }
+  if(!st.canOrder){ html += '<div class="hrs-note">' + (st.appPause ? 'ดูเมนูได้ครับ สั่งได้อีกครั้งเมื่อเปิดรับออเดอร์' : 'ดูเมนูได้ แต่สั่งได้เฉพาะเวลาที่ร้านเปิด') + '</div>'; }
   return html;
 }
 
@@ -579,7 +616,7 @@ function refreshHoursUI_(){
       const can = shopCanOrderNow_(selectedShopName).canOrder;
       document.querySelectorAll("#productList .add-btn").forEach(function(b){
         b.disabled = !can;
-        b.textContent = can ? "เพิ่มสินค้าลงตะกร้า" : "ร้านปิดอยู่";
+        b.textContent = can ? "เพิ่มสินค้าลงตะกร้า" : (appPauseNow_() ? "พักรับออเดอร์ชั่วคราว" : "ร้านปิดอยู่");
       });
     }
   } catch(e){}
@@ -891,7 +928,7 @@ function showProductsByShop(shopName, isRestore){
     html += '<p><b>' + price + ' บาท</b></p>';
     if(inStock){
       html += '<button type="button" class="add-btn" data-index="' + index + '"' + (shopCanOrder ? '' : ' disabled') + ' onclick="event.stopPropagation(); openQtyModal(' + index + ')">';
-      html += (shopCanOrder ? 'เพิ่มสินค้าลงตะกร้า' : 'ร้านปิดอยู่');
+      html += (shopCanOrder ? 'เพิ่มสินค้าลงตะกร้า' : (appPauseNow_() ? 'พักรับออเดอร์ชั่วคราว' : 'ร้านปิดอยู่'));
       html += '</button>';
     } else {
       html += '<button type="button" disabled>สินค้าหมดชั่วคราว</button>';
@@ -1265,7 +1302,7 @@ async function confirmOrder(){
   if(deliveryTooFar_){ alert("ระยะส่งเกิน " + DELIVERY_MAX_KM + " กม. สั่งผ่านแอพไม่ได้ครับ\nกรุณาติดต่อแอดมินเพื่อสั่งพิเศษ"); return; }
   const confirmState = shopCanOrderNow_(selectedShopName);
   if(!confirmState.canOrder){
-    alert(confirmState.paused ? "ร้านนี้พักรับออเดอร์ชั่วคราว ขออภัยครับ" : "ตอนนี้ร้านปิดแล้วครับ" + (confirmState.next ? " (" + confirmState.next + " น.)" : "") + "\nกรุณาสั่งใหม่ตอนร้านเปิดนะครับ");
+    alert(confirmState.appPause ? ("ขณะนี้พักรับออเดอร์ชั่วคราว (ไรเดอร์ติดภารกิจ)\nเปิดรับอีกครั้งประมาณ " + confirmState.untilText + " น. ครับ") : confirmState.paused ? "ร้านนี้พักรับออเดอร์ชั่วคราว ขออภัยครับ" : "ตอนนี้ร้านปิดแล้วครับ" + (confirmState.next ? " (" + confirmState.next + " น.)" : "") + "\nกรุณาสั่งใหม่ตอนร้านเปิดนะครับ");
     return;
   }
 

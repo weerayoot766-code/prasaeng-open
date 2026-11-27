@@ -23,6 +23,9 @@
 
 <body>
 
+<div id="pauseBar" role="alert" style="display:none;position:sticky;top:0;z-index:51;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 10px;padding:10px 14px;margin:0 0 6px;border-radius:0 0 18px 18px;background:linear-gradient(90deg,#b91c1c,#ef4444);color:#fff;font-size:14.5px;line-height:1.4;text-align:center;box-shadow:0 3px 10px rgba(185,28,28,.35);">
+  <span id="pauseMain"></span>
+</div>
 <div class="hours-bar" id="hoursBar" role="status">
   <span class="hb-dot"></span>
   <span class="hb-main" id="hoursMain">เปิดให้บริการ <b>ทุกวัน</b> เวลา <b>08.00 – 18.00 น.</b></span>
@@ -312,14 +315,14 @@
   <p style="margin:14px 0 0; font-size:11px; opacity:.7;">
     © 2026 พระแสงเดลิเวอรี่ สงวนลิขสิทธิ์
   </p>
-  <p id="appVersion" style="margin:4px 0 0; font-size:11px; opacity:.7;">เวอร์ชัน 2026.11.26-4</p>
+  <p id="appVersion" style="margin:4px 0 0; font-size:11px; opacity:.7;">เวอร์ชัน 2026.11.26-5</p>
 
 </div>
 </div> <!-- ปิด tabpage-contact -->
 
 <script src="api.js"></script>
 <script src="chat.js"></script>
-<script src="app.js?v=20261126d"></script>
+<script src="app.js?v=20261126e"></script>
 
 <div id="installHelp" class="install-help" style="display:none;" onclick="if(event.target===this)closeInstallHelp()">
   <div class="install-help-box">
