@@ -129,7 +129,7 @@ button{font-family:inherit}
 .pausebtn.on b{color:#b91c1c}
 .pz-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;display:none;align-items:flex-end;justify-content:center}
 .pz-ov.on{display:flex}
-.pz-box{background:#fff;width:100%;max-width:520px;border-radius:26px 26px 0 0;padding:20px 18px calc(env(safe-area-inset-bottom) + 20px)}
+.pz-box{max-height:92vh;overflow-y:auto;background:#fff;width:100%;max-width:520px;border-radius:26px 26px 0 0;padding:20px 18px calc(env(safe-area-inset-bottom) + 20px)}
 .pz-box h3{margin:0 0 4px;font-size:24px;color:var(--g7)}.pz-box p{margin:0 0 12px;font-size:16px;color:var(--mut);line-height:1.5}
 .pz-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .pz-opt{border:0;border-radius:16px;padding:16px 8px;font-family:inherit;font-weight:800;font-size:21px;background:var(--g1);color:var(--g7);box-shadow:0 4px 0 var(--g2);cursor:pointer}
@@ -213,6 +213,9 @@ button{font-family:inherit}
       <button class="pz-opt" onclick="setPause(120)">2 ชั่วโมง</button>
       <button class="pz-opt" onclick="setPause(180)">3 ชั่วโมง</button>
       <button class="pz-opt" onclick="setPause(240)">4 ชั่วโมง</button>
+      <button class="pz-opt" onclick="setPause(360)">6 ชั่วโมง</button>
+      <button class="pz-opt" onclick="setPause(720)">12 ชั่วโมง</button>
+      <button class="pz-opt" style="grid-column:1/-1" onclick="setPause(1440)">24 ชั่วโมง (ทั้งวัน)</button>
     </div>
     <button class="pz-cancel" onclick="closePause()">ยกเลิก</button>
   </div>
